@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duct Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <header class="brand">
+          <span class="brand__mark"></span>
+          <div>
+            <h1>Duct Viewer</h1>
+            <p>Crenna rectangular duct codes</p>
+          </div>
+        </header>
+
+        <form id="code-form" class="code-form" autocomplete="off">
+          <label for="code-input">Product code</label>
+          <div class="code-form__row">
+            <input id="code-input" spellcheck="false" placeholder="KK-1-1500-1000-0" />
+            <button type="submit">Show</button>
+          </div>
+          <p id="code-error" class="code-error" role="alert"></p>
+        </form>
+
+<!--         <div class="examples">
+          <span>Try</span>
+          <button type="button" data-code="KK-1-1500-1000-0">KK-1-1500-1000-0</button>
+          <button type="button" data-code="KK-2-800-400-2-PG/F">KK-2-800-400-2-PG/F</button>
+          <button type="button" data-code="KK-3-600-300-4-1750 L/TN">KK-3-600-300-4-1750 L/TN</button>
+          <button type="button" data-code="KK-1-500-400-0 Fast B/Falsad B">KK-1-500-400-0 Fast B/Falsad B</button>
+          <button type="button" data-code="KD-5-1500-1000-0-1200-800">KD-5-1500-1000-0-1200-800</button>
+          <button type="button" data-code="KD-1-800-500-0-400-300">KD-1-800-500-0-400-300</button>
+          <button type="button" data-code="KD-2-1000-600-1-600-400-700">KD-2-1000-600-1-600-400-700</button>
+          <button type="button" data-code="KB-1-600-400-0">KB-1-600-400-0</button>
+          <button type="button" data-code="KB-1-1000-500-2">KB-1-1000-500-2</button>
+          <button type="button" data-code="KB-3-800-400-0 PG/F">KB-3-800-400-0 PG/F</button>
+          <button type="button" data-code="KB-4-1500-1000-0-1200-400">KB-4-1500-1000-0-1200-400</button>
+        </div> -->
+
+        <section class="spec">
+          <h2>Decoded</h2>
+          <dl id="spec-list"></dl>
+          <ul id="warnings" class="warnings"></ul>
+        </section>
+
+        <footer class="panel__foot">
+          Based on Crenna datasheets KK (v4.0), KD (v3.0), KB (v3.0) and KS (v3.0). Visual model – not a manufacturing drawing.
+        </footer>
+      </aside>
+
+      <main class="stage">
+        <div id="viewport" class="viewport"></div>
+
+        <div class="toolbar" role="toolbar" aria-label="View">
+          <div class="seg" id="views">
+            <button type="button" data-view="iso" class="is-active">3D</button>
+            <button type="button" data-view="end">End</button>
+            <button type="button" data-view="side">Side</button>
+            <button type="button" data-view="top">Top</button>
+          </div>
+          <div class="seg">
+            <button type="button" id="toggle-dims" class="is-active" aria-pressed="true">Dimensions</button>
+            <button type="button" id="toggle-ins" class="is-active" aria-pressed="true">Insulation</button>
+            <button type="button" id="toggle-section" aria-pressed="false">Section</button>
+          </div>
+          <button type="button" id="snapshot" class="ghost">Save PNG</button>
+        </div>
+
+        <p class="hint">Drag to rotate · Right-drag to pan · Scroll to zoom</p>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
