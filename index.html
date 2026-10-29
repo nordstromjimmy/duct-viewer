@@ -54,7 +54,7 @@
         </section>
 
         <footer class="panel__foot">
-          Based on Crenna datasheets KK (v4.0), KD (v3.0), KB (v3.0) and KS (v3.0). Visual model – not a manufacturing drawing.
+          Based on Crenna datasheets KK (v4.0), KD (v3.0), KB (v3.0), KS (v3.0) and KÖ (v3.0). Visual model – not a manufacturing drawing.
         </footer>
       </aside>
 
@@ -72,6 +72,11 @@
             <button type="button" id="toggle-dims" class="is-active" aria-pressed="true">Dimensions</button>
             <button type="button" id="toggle-ins" class="is-active" aria-pressed="true">Insulation</button>
             <button type="button" id="toggle-section" aria-pressed="false">Section</button>
+          </div>
+          <div class="seg" id="rotate">
+            <button type="button" data-rotate="left" title="Roll the duct 90° counter-clockwise">Rotate left</button>
+            <button type="button" id="rotation-reset" class="angle" title="Reset rotation" disabled>0°</button>
+            <button type="button" data-rotate="right" title="Roll the duct 90° clockwise">Rotate right</button>
           </div>
           <button type="button" id="snapshot" class="ghost">Save PNG</button>
         </div>

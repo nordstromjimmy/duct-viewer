@@ -47,6 +47,11 @@ const END_ALIASES: Record<string, EndCode> = {
   TN: 'TN',
 };
 
+/** One end-type token ("PG", "Fast B", ...) → end code, or null if unknown. */
+export function parseEndToken(token: string): EndCode | null {
+  return END_ALIASES[token.replace(/\s+/g, '').toUpperCase()] ?? null;
+}
+
 /** Normalise a code: trim, upper case, collapse spaces. */
 export function normalise(input: string): string {
   return input.trim().toUpperCase().replace(/\s+/g, ' ');

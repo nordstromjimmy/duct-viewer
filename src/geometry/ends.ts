@@ -28,7 +28,7 @@ export function endOverhang(code: EndCode): number {
   switch (code) {
     case 'PG':
     case 'B':
-      return PG_HEIGHT + 16;
+      return PG_HEIGHT;
     case 'F':
       return FLANGE_WIDTH;
     case 'FALSAD_B':
@@ -52,15 +52,16 @@ function pgProfile(ctx: EndContext, material: THREE.Material): THREE.Group {
   return g;
 }
 
-/** Cast PG corners with a bolt through the protruding tab. */
-function pgCorners(ctx: EndContext, material: THREE.Material, boltMat: THREE.Material): THREE.Group {
+/** PG corners: L-shaped plates tucked inside the PG profile at each corner. */
+function pgCorners(ctx: EndContext, material: THREE.Material): THREE.Group {
   const g = new THREE.Group();
   const ow = ctx.w + 2 * SHEET;
   const oh = ctx.h + 2 * SHEET;
   const leg = Math.min(80, ow / 3, oh / 3);
   const thick = 3;
 
-  // L-shaped corner plate (top-right corner), mirrored to the other three
+  // L-shaped corner plate (top-right corner), mirrored to the other three.
+  // It stays within the profile height so nothing sticks out past the PG.
   const shape = new THREE.Shape();
   const x0 = ow / 2;
   const y0 = oh / 2;
@@ -70,36 +71,17 @@ function pgCorners(ctx: EndContext, material: THREE.Material, boltMat: THREE.Mat
   shape.lineTo(x0, y0);
   shape.lineTo(x0, y0 - leg);
   shape.lineTo(x1, y0 - leg);
-  shape.lineTo(x1, y1 - 8);
-  shape.lineTo(x1 + 16, y1 + 8); // protruding bolt tab
-  shape.lineTo(x1 + 8, y1 + 16);
-  shape.lineTo(x1 - 8, y1);
+  shape.lineTo(x1, y1);
   shape.lineTo(x0 - leg, y1);
   shape.lineTo(x0 - leg, y0);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false });
-  const boltGeo = new THREE.CylinderGeometry(4, 4, 14, 16);
-  boltGeo.rotateX(Math.PI / 2);
-  const nutGeo = new THREE.CylinderGeometry(6.5, 6.5, 5, 6);
-  nutGeo.rotateX(Math.PI / 2);
 
   for (const [sx, sy] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
-    const corner = new THREE.Group();
     const plate = new THREE.Mesh(geo, material);
     plate.position.z = -PG_DEPTH + 2;
     plate.castShadow = true;
-    corner.add(plate);
-
-    const bx = x1 + 6;
-    const by = y1 + 6;
-    const bolt = new THREE.Mesh(boltGeo, boltMat);
-    bolt.position.set(bx, by, -PG_DEPTH + 4);
-    corner.add(bolt);
-    const nut = new THREE.Mesh(nutGeo, boltMat);
-    nut.position.set(bx, by, -PG_DEPTH - 1);
-    corner.add(nut);
-
-    corner.scale.set(sx, sy, 1);
-    g.add(corner);
+    plate.scale.set(sx, sy, 1);
+    g.add(plate);
   }
   return g;
 }
@@ -114,7 +96,7 @@ function gasket(ctx: EndContext): THREE.Mesh {
 function pgEnd(ctx: EndContext): THREE.Group {
   const g = new THREE.Group();
   g.add(pgProfile(ctx, ctx.mat.profile));
-  g.add(pgCorners(ctx, ctx.mat.corner, ctx.mat.bolt));
+  g.add(pgCorners(ctx, ctx.mat.corner));
   g.add(gasket(ctx));
   return g;
 }
@@ -133,7 +115,7 @@ function looseEnd(ctx: EndContext): THREE.Group {
   const g = new THREE.Group();
   const loose = new THREE.Group();
   loose.add(pgProfile(ctx, ctx.mat.loose));
-  loose.add(pgCorners(ctx, ctx.mat.loose, ctx.mat.loose));
+  loose.add(pgCorners(ctx, ctx.mat.loose));
   const gap = Math.max(150, Math.min(ctx.w, ctx.h) * 0.3);
   loose.position.z = gap;
   g.add(loose);

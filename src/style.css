@@ -262,3 +262,11 @@ button { font: inherit; cursor: pointer; }
   font-weight: 500;
   opacity: 0.6;
 }
+
+/* Rotation angle readout between the rotate buttons (click to reset) */
+.seg .angle {
+  min-width: 44px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.seg .angle:disabled { opacity: 1; color: var(--ink-3); }

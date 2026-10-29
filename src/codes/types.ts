@@ -108,7 +108,27 @@ export interface SBend extends ProductBase {
   length: number;
 }
 
-export type Product = StraightDuct | Transition | Bend | SBend;
+/** Circular end on a KÖ: nipple (standard, fits inside spiral duct) or socket ("muff", fits over it). */
+export type RoundEnd = 'nipple' | 'socket';
+
+/** KÖ – transition from rectangular to circular (övergång). End 1 is rectangular, end 2 circular. */
+export interface RoundTransition extends ProductBase {
+  kind: 'KÖ';
+  /** Position of the circular end, seen from the rectangular end (same grid as KD). */
+  placement: Placement;
+  /** Rectangular opening, mm (bbbb x cccc). */
+  width: number;
+  height: number;
+  /** Circular connection diameter, mm (eeee). */
+  diameter: number;
+  /** Length, mm (ffff) – from the rectangular end to the base of the circular connection. */
+  length: number;
+  /** True when ffff was left out and the standard length was used. */
+  standardLength: boolean;
+  roundEnd: RoundEnd;
+}
+
+export type Product = StraightDuct | Transition | Bend | SBend | RoundTransition;
 
 export type ParseResult<T = Product> =
   | { ok: true; product: T }

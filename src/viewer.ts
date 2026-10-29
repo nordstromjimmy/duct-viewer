@@ -1,4 +1,4 @@
-// The 3D viewport: renderer, camera, orbit controls, lighting and view presets.
+// The 3D viewport: renderer, camera, orbit controls, lighting, view presets and rotation.
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -16,6 +16,8 @@ const VIEW_DIRECTIONS: Record<ViewName, THREE.Vector3> = {
   top: new THREE.Vector3(0, 1, 0.0001).normalize(),
 };
 
+const QUARTER = Math.PI / 2;
+
 export class Viewer {
   readonly renderer: THREE.WebGLRenderer;
   private labelRenderer: CSS2DRenderer;
@@ -26,8 +28,21 @@ export class Viewer {
   private floor: THREE.Mesh;
   private grid: THREE.GridHelper | null = null;
   private model: DuctModel | null = null;
+
+  /**
+   * The model hangs in two groups: `pivot` sits on the model's centre line and rolls around
+   * the duct axis (Z); `holder` shifts the model so that centre line goes through the pivot.
+   */
+  private pivot = new THREE.Group();
+  private holder = new THREE.Group();
+  private roll = 0; // current roll target, radians (multiples of 90°)
+  private rollTween: { from: number; to: number; t: number } | null = null;
+
   private defaultSection = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
+  /** The plane the materials clip with, kept in world space as the model rolls. */
+  private clipPlane = new THREE.Plane();
   private sectionOn = false;
+
   private tween: { from: THREE.Vector3; to: THREE.Vector3; fromT: THREE.Vector3; toT: THREE.Vector3; t: number } | null = null;
   private timer = new THREE.Timer();
   private container: HTMLElement;
@@ -78,27 +93,37 @@ export class Viewer {
     this.floor.receiveShadow = true;
     this.scene.add(this.floor);
 
+    this.pivot.add(this.holder);
+    this.scene.add(this.pivot);
+
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
     this.renderer.setAnimationLoop(() => this.render());
   }
 
-  setModel(model: DuctModel) {
+  setModel(model: DuctModel, opts: { resetRotation?: boolean } = {}) {
     if (this.model) {
-      this.scene.remove(this.model.root);
+      this.holder.remove(this.model.root);
       disposeModel(this.model.root);
     }
     this.model = model;
-    this.scene.add(model.root);
+    this.holder.add(model.root);
 
-    const b = model.bounds;
-    const size = b.getSize(new THREE.Vector3());
+    // A new product starts unrotated; the same product redrawn keeps its rotation
+    if (opts.resetRotation) this.roll = 0;
+
+    // Put the pivot on the model's centre line (parallel to Z) so rolling keeps it in place.
+    const c = model.bounds.getCenter(new THREE.Vector3());
+    this.pivot.position.set(c.x, c.y, 0);
+    this.holder.position.set(-c.x, -c.y, 0);
+    this.rollTween = null;
+    this.pivot.rotation.z = this.roll;
+
+    const size = model.bounds.getSize(new THREE.Vector3());
     const span = Math.max(size.x, size.y, size.z);
 
-    // Floor + grid under the model
-    const floorY = b.min.y - 1;
+    // Floor + grid
     this.floor.scale.set(span * 6, span * 6, 1);
-    this.floor.position.y = floorY;
     if (this.grid) {
       this.scene.remove(this.grid);
       this.grid.geometry.dispose();
@@ -106,19 +131,21 @@ export class Viewer {
     const step = span > 2500 ? 500 : span > 1000 ? 250 : 100; // grid in round millimetres
     const divisions = Math.ceil((span * 3) / step);
     this.grid = new THREE.GridHelper(divisions * step, divisions, 0xb9bec5, 0xd7dbe0);
-    this.grid.position.y = floorY;
     (this.grid.material as THREE.Material).transparent = true;
     (this.grid.material as THREE.Material).opacity = 0.6;
     this.scene.add(this.grid);
+    this.placeFloor();
 
     // Light + shadow camera sized to the model
-    this.sun.position.set(span * 0.8, span * 2, span * 1.2);
+    this.sun.position.set(c.x + span * 0.8, c.y + span * 2, c.z + span * 1.2);
+    this.sun.target.position.copy(c);
     const cam = this.sun.shadow.camera;
     cam.left = cam.bottom = -span;
     cam.right = cam.top = span;
     cam.near = 1;
     cam.far = span * 5;
     cam.updateProjectionMatrix();
+
     // A new model may use a different cutting plane
     if (this.sectionOn) this.setSection(true);
   }
@@ -126,13 +153,18 @@ export class Viewer {
   /** Move the camera to a preset view, framing the whole model. */
   setView(view: ViewName, animate = true) {
     if (!this.model) return;
-    const sphere = this.model.bounds.getBoundingSphere(new THREE.Sphere());
+    const dir = view === 'iso' && this.model.iso ? this.model.iso : VIEW_DIRECTIONS[view];
+    this.frame(dir, animate);
+  }
+
+  /** Point the camera along `dir` (from the model towards the camera) and fit the model in view. */
+  private frame(dir: THREE.Vector3, animate = true) {
+    const sphere = this.worldBounds(this.roll).getBoundingSphere(new THREE.Sphere());
     const fov = THREE.MathUtils.degToRad(this.camera.fov);
     const aspect = this.camera.aspect;
     const fit = Math.min(fov, 2 * Math.atan(Math.tan(fov / 2) * aspect)); // narrowest axis
     const dist = (sphere.radius * 1.25) / Math.sin(fit / 2);
-    const dir = view === 'iso' && this.model.iso ? this.model.iso : VIEW_DIRECTIONS[view];
-    const to = sphere.center.clone().addScaledVector(dir, dist);
+    const to = sphere.center.clone().addScaledVector(dir.clone().normalize(), dist);
 
     if (!animate) {
       this.camera.position.copy(to);
@@ -149,6 +181,38 @@ export class Viewer {
     };
   }
 
+  /**
+   * Roll the model 90° around its axis. 'left' = counter-clockwise as seen from the camera,
+   * whichever side of the duct the camera is on.
+   */
+  rotate(direction: 'left' | 'right') {
+    const toCamera = this.camera.position.clone().sub(this.controls.target);
+    const facing = toCamera.z >= 0 ? 1 : -1; // is the camera looking along -Z or +Z?
+    const ccw = direction === 'left' ? 1 : -1;
+    const from = this.rollTween ? this.pivot.rotation.z : this.roll;
+    this.roll += ccw * facing * QUARTER;
+    this.rollTween = { from, to: this.roll, t: 0 };
+    this.reframe();
+  }
+
+  /** Re-fit the model after rolling, keeping the current viewing angle. */
+  private reframe() {
+    this.frame(this.camera.position.clone().sub(this.controls.target));
+  }
+
+  /** Back to the orientation the model was built in. */
+  resetRotation() {
+    if (this.roll === 0) return;
+    this.rollTween = { from: this.pivot.rotation.z, to: 0, t: 0 };
+    this.roll = 0;
+    this.reframe();
+  }
+
+  /** Current roll in degrees, 0–270. */
+  get rotationDegrees(): number {
+    return ((Math.round((this.roll * 180) / Math.PI) % 360) + 360) % 360;
+  }
+
   setDimensionsVisible(on: boolean) {
     if (this.model) this.model.dimensions.visible = on;
     this.container.classList.toggle('hide-dims', !on);
@@ -161,9 +225,9 @@ export class Viewer {
   /** Cut the model in half to show the inside. Each model can choose its own cutting plane. */
   setSection(on: boolean) {
     this.sectionOn = on;
-    const plane = this.model?.section ?? this.defaultSection;
+    this.updateClipPlane();
     for (const m of Object.values(this.materials)) {
-      m.clippingPlanes = on ? [plane] : [];
+      m.clippingPlanes = on ? [this.clipPlane] : [];
       m.clipShadows = on;
       m.needsUpdate = true;
     }
@@ -172,6 +236,32 @@ export class Viewer {
   /** PNG data URL of the current view. */
   snapshot(): string {
     return this.renderer.domElement.toDataURL('image/png');
+  }
+
+  /** Bounding box of the model in the scene, at the current roll or at a given one. */
+  private worldBounds(roll?: number): THREE.Box3 {
+    const current = this.pivot.rotation.z;
+    if (roll !== undefined) this.pivot.rotation.z = roll;
+    this.pivot.updateMatrixWorld(true);
+    const box = this.model!.bounds.clone().applyMatrix4(this.holder.matrixWorld);
+    this.pivot.rotation.z = current;
+    this.pivot.updateMatrixWorld(true);
+    return box;
+  }
+
+  /** Keep the floor and grid just under the model. */
+  private placeFloor() {
+    if (!this.model) return;
+    const y = this.worldBounds().min.y - 1;
+    this.floor.position.y = y;
+    if (this.grid) this.grid.position.y = y;
+  }
+
+  /** The cutting plane is defined in model space; move it with the model. */
+  private updateClipPlane() {
+    const src = this.model?.section ?? this.defaultSection;
+    this.pivot.updateMatrixWorld(true);
+    this.clipPlane.copy(src).applyMatrix4(this.holder.matrixWorld);
   }
 
   private resize() {
@@ -194,6 +284,15 @@ export class Viewer {
       this.camera.position.lerpVectors(tw.from, tw.to, e);
       this.controls.target.lerpVectors(tw.fromT, tw.toT, e);
       if (tw.t >= 1) this.tween = null;
+    }
+    if (this.rollTween) {
+      const rt = this.rollTween;
+      rt.t = Math.min(1, rt.t + dt / 0.45);
+      const e = 1 - Math.pow(1 - rt.t, 3);
+      this.pivot.rotation.z = rt.from + (rt.to - rt.from) * e;
+      this.placeFloor();
+      if (this.sectionOn) this.updateClipPlane();
+      if (rt.t >= 1) this.rollTween = null;
     }
     this.controls.update();
     this.renderer.render(this.scene, this.camera);

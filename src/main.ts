@@ -37,9 +37,11 @@ function show(code: string, opts: { updateHash?: boolean } = {}) {
 
   const product = result.product;
   const firstModel = current === null;
+  const newCode = product.code !== current?.code;
   current = product;
 
-  viewer.setModel(buildModel(product, materials));
+  viewer.setModel(buildModel(product, materials), { resetRotation: newCode });
+  showRotation();
   viewer.setDimensionsVisible(state.dims);
   viewer.setInsulationVisible(state.insulation);
   viewer.setView(currentView, !firstModel);
@@ -110,6 +112,24 @@ document.querySelectorAll<HTMLButtonElement>('#views button').forEach((btn) =>
     viewer.setView(currentView);
   }),
 );
+
+// Roll the duct around its axis; the middle button shows the angle and resets it
+const rotationReset = $<HTMLButtonElement>('#rotation-reset');
+function showRotation() {
+  const deg = viewer.rotationDegrees;
+  rotationReset.textContent = `${deg}°`;
+  rotationReset.disabled = deg === 0;
+}
+document.querySelectorAll<HTMLButtonElement>('#rotate [data-rotate]').forEach((btn) =>
+  btn.addEventListener('click', () => {
+    viewer.rotate(btn.dataset.rotate as 'left' | 'right');
+    showRotation();
+  }),
+);
+rotationReset.addEventListener('click', () => {
+  viewer.resetRotation();
+  showRotation();
+});
 
 function bindToggle(btn: HTMLButtonElement, key: keyof typeof state, apply: (on: boolean) => void) {
   btn.addEventListener('click', () => {
