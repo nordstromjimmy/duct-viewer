@@ -8,6 +8,7 @@ import type { StraightDuct } from '../codes/types';
 import { dimension } from './dimensions';
 import { buildEnd, endOverhang, SHEET } from './ends';
 import type { Materials } from './materials';
+import { rectPort, type Port } from './ports';
 import { ringMesh } from './shapes';
 
 export interface DuctModel {
@@ -20,6 +21,8 @@ export interface DuctModel {
   section?: THREE.Plane;
   /** Direction the "3D" view looks from (towards the model). Default: front-right-above. */
   iso?: THREE.Vector3;
+  /** Openings other parts can connect to (used by the assembly). */
+  ports: Port[];
 }
 
 function buildInsulation(d: StraightDuct, mat: Materials): THREE.Group {
@@ -115,7 +118,12 @@ export function buildDuct(d: StraightDuct, mat: Materials): DuctModel {
   const dimensions = buildDimensions(d, overhang);
   root.add(dimensions);
 
-  return { root, insulation, dimensions, bounds };
+  const ports = [
+    rectPort('end1', 'End 1', new THREE.Vector3(0, 0, -d.length / 2), new THREE.Vector3(0, 0, -1), d.width, d.height, d.ends[0]),
+    rectPort('end2', 'End 2', new THREE.Vector3(0, 0, d.length / 2), new THREE.Vector3(0, 0, 1), d.width, d.height, d.ends[1]),
+  ];
+
+  return { root, insulation, dimensions, bounds, ports };
 }
 
 /** Free up GPU memory for a model that's being replaced. */

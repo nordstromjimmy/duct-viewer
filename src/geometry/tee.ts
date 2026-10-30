@@ -15,6 +15,7 @@ import { dimension } from './dimensions';
 import type { DuctModel } from './duct';
 import { buildEnd, endOverhang, SHEET } from './ends';
 import type { Materials } from './materials';
+import { rectPort } from './ports';
 
 /** A point in the plan: x across the run, z along it. */
 interface P2 { x: number; z: number }
@@ -214,5 +215,10 @@ export function buildTee(p: Tee, mat: Materials): DuctModel {
     section: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
     // From the branch side, so the branch and end 2 are both in view
     iso: new THREE.Vector3(-1.1, 0.9, 1.2).normalize(),
+    ports: [
+      rectPort('end1', 'End 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), b, h, p.ends[0]),
+      rectPort('end2', 'End 2', new THREE.Vector3(0, 0, L), new THREE.Vector3(0, 0, 1), b, h, p.ends[1]),
+      rectPort('end3', 'End 3 · branch', new THREE.Vector3(xBranch, 0, leg1 + e / 2), new THREE.Vector3(-1, 0, 0), e, h, p.branchEnd),
+    ],
   };
 }

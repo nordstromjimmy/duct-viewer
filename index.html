@@ -14,7 +14,7 @@
   </head>
   <body>
     <div class="app">
-      <aside class="panel">
+      <aside class="panel" id="panel" data-mode="part">
         <header class="brand">
           <span class="brand__mark"></span>
           <div>
@@ -23,6 +23,14 @@
           </div>
         </header>
 
+        <div class="tabs" role="tablist" aria-label="Mode">
+          <button type="button" role="tab" data-mode="part" class="is-active" aria-selected="true">Part</button>
+          <button type="button" role="tab" data-mode="assembly" aria-selected="false">
+            Assembly <span id="asm-count" class="count"></span>
+          </button>
+        </div>
+
+        <div class="mode-part">
         <form id="code-form" class="code-form" autocomplete="off">
           <label for="code-input">Product code</label>
           <div class="code-form__row">
@@ -30,17 +38,71 @@
             <button type="submit">Show</button>
           </div>
           <p id="code-error" class="code-error" role="alert"></p>
+          <button type="button" id="save-part" class="save-btn">+ Save to My parts</button>
         </form>
 
+        <details id="unit-builder" class="unit-builder"></details>
+        <details id="acc-builder" class="unit-builder"></details>
+
+<!--         <div class="examples">
+          <span>Try</span>
+          <button type="button" data-code="KK-1-1500-1000-0">KK-1-1500-1000-0</button>
+          <button type="button" data-code="KK-2-800-400-2-PG/F">KK-2-800-400-2-PG/F</button>
+          <button type="button" data-code="KK-3-600-300-4-1750 L/TN">KK-3-600-300-4-1750 L/TN</button>
+          <button type="button" data-code="KK-1-500-400-0 Fast B/Falsad B">KK-1-500-400-0 Fast B/Falsad B</button>
+          <button type="button" data-code="KD-5-1500-1000-0-1200-800">KD-5-1500-1000-0-1200-800</button>
+          <button type="button" data-code="KD-1-800-500-0-400-300">KD-1-800-500-0-400-300</button>
+          <button type="button" data-code="KD-2-1000-600-1-600-400-700">KD-2-1000-600-1-600-400-700</button>
+          <button type="button" data-code="KB-1-600-400-0">KB-1-600-400-0</button>
+          <button type="button" data-code="KB-1-1000-500-2">KB-1-1000-500-2</button>
+          <button type="button" data-code="KB-3-800-400-0 PG/F">KB-3-800-400-0 PG/F</button>
+          <button type="button" data-code="KB-4-1500-1000-0-1200-400">KB-4-1500-1000-0-1200-400</button>
+        </div> -->
 
         <section class="spec">
           <h2>Decoded</h2>
           <dl id="spec-list"></dl>
           <ul id="warnings" class="warnings"></ul>
         </section>
+        </div>
+
+        <div class="mode-assembly">
+          <section class="asm-status">
+            <p id="asm-hint" class="asm-hint"></p>
+            <ul id="asm-warnings" class="warnings"></ul>
+            <div class="asm-actions">
+              <button type="button" id="asm-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+              <button type="button" id="asm-fit">Fit view</button>
+              <button type="button" id="asm-clear" class="danger">Clear assembly</button>
+            </div>
+          </section>
+          <section class="asm-orient">
+            <h2>Whole assembly</h2>
+            <div id="asm-orient" class="asm-actions">
+              <button type="button" data-act="tip-over" title="Tip 90°: a lying duct stands up on its end, a standing one lies down">⤒ Stand up / tip</button>
+              <button type="button" data-act="tip-back" title="Tip 90° the other way">⤓ Tip other way</button>
+              <button type="button" data-act="spin" title="Turn 90° around the vertical axis">⟳ Turn on floor</button>
+            </div>
+          </section>
+          <section id="asm-selected" class="asm-selected" hidden></section>
+        </div>
+
+        <section class="my-parts">
+          <div class="my-parts__head">
+            <h2>My parts</h2>
+            <div class="my-parts__file">
+              <button type="button" id="export-project" title="Download My parts and the assembly as a file">Export</button>
+              <button type="button" id="import-project" title="Load a project file">Import</button>
+              <input type="file" id="import-file" accept=".json,application/json" hidden />
+            </div>
+          </div>
+          <p id="parts-empty" class="my-parts__empty">Nothing saved yet. Show a code and press “Save to My parts”.</p>
+          <ul id="parts-list" class="parts-list"></ul>
+          <p id="parts-message" class="code-error" role="alert"></p>
+        </section>
 
         <footer class="panel__foot">
-          Based on Crenna datasheets KK (v4.0), KD (v3.0), KB (v3.0), KS (v3.0), KÖ (v3.0) and KT (v3.0). Visual model – not a manufacturing drawing.
+          Based on Crenna datasheets KK (v4.0), KD (v3.0), KB (v3.0), KS (v3.0), KÖ (v3.0) and KT (v3.0). Ventilation unit, silencers and dampers are generic. Visual model – not a manufacturing drawing.
         </footer>
       </aside>
 
@@ -54,20 +116,21 @@
             <button type="button" data-view="side">Side</button>
             <button type="button" data-view="top">Top</button>
           </div>
+          <div class="seg" id="rotate">
+            <button type="button" data-rotate="left" title="Roll the duct 90° counter-clockwise">↺ Rotate left</button>
+            <button type="button" id="rotation-reset" class="angle" title="Reset rotation" disabled>0°</button>
+            <button type="button" data-rotate="right" title="Roll the duct 90° clockwise">Rotate right ↻</button>
+          </div>
           <div class="seg">
             <button type="button" id="toggle-dims" class="is-active" aria-pressed="true">Dimensions</button>
             <button type="button" id="toggle-ins" class="is-active" aria-pressed="true">Insulation</button>
             <button type="button" id="toggle-section" aria-pressed="false">Section</button>
-          </div>
-          <div class="seg" id="rotate">
-            <button type="button" data-rotate="left" title="Roll the duct 90° counter-clockwise">Rotate left</button>
-            <button type="button" id="rotation-reset" class="angle" title="Reset rotation" disabled>0°</button>
-            <button type="button" data-rotate="right" title="Roll the duct 90° clockwise">Rotate right</button>
+            <button type="button" id="toggle-labels" class="is-active" aria-pressed="true" title="Show/hide all text in the scene">Labels</button>
           </div>
           <button type="button" id="snapshot" class="ghost">Save PNG</button>
         </div>
 
-        <p class="hint">Drag to rotate · Right-drag to pan · Scroll to zoom</p>
+        <p class="hint" id="stage-hint">Drag to rotate · Right-drag to pan · Scroll to zoom</p>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>

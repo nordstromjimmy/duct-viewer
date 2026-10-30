@@ -16,6 +16,7 @@ import { dimension } from './dimensions';
 import type { DuctModel } from './duct';
 import { buildEnd, endOverhang, SHEET } from './ends';
 import type { Materials } from './materials';
+import { rectPort } from './ports';
 import { ribbon, sweepMesh, type Ring } from './sweep';
 
 interface Pt { u: number; v: number }
@@ -285,6 +286,10 @@ export function buildBend(p: Bend, mat: Materials): DuctModel {
     // Cut horizontally so the section shows the shape of the turn
     section: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
     iso: bendIsoDirection(p.angle),
+    ports: [
+      rectPort('end1', 'End 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
+      rectPort('end2', 'End 2', toWorld(c2, 0), outDir, p.endWidth, p.endHeight, p.ends[1]),
+    ],
   };
 }
 

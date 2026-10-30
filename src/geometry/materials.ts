@@ -70,6 +70,21 @@ export function createMaterials() {
     fire: new THREE.MeshStandardMaterial({ color: 0xd8d4cc, roughness: 1, metalness: 0, side: THREE.DoubleSide }),
     armaflex: new THREE.MeshStandardMaterial({ color: 0x26282b, roughness: 0.8, metalness: 0, side: THREE.DoubleSide }),
     liner: new THREE.MeshStandardMaterial({ color: 0xa9aeb4, metalness: 0.8, roughness: 0.55, side: THREE.DoubleSide }),
+    // Ventilation unit (generic, unbranded)
+    unitCasing: new THREE.MeshStandardMaterial({ color: 0xcfd3d8, metalness: 0.25, roughness: 0.55 }),
+    unitDoor: new THREE.MeshStandardMaterial({ color: 0xd9dde1, metalness: 0.25, roughness: 0.5 }),
+    unitEdge: new THREE.MeshStandardMaterial({ color: 0xa9afb6, metalness: 0.8, roughness: 0.35 }),
+    unitFrame: new THREE.MeshStandardMaterial({ color: 0x4a4e55, metalness: 0.5, roughness: 0.5 }),
+    unitHandle: new THREE.MeshStandardMaterial({ color: 0x25282c, metalness: 0.2, roughness: 0.6 }),
+    unitRecess: new THREE.MeshStandardMaterial({ color: 0x1d2024, metalness: 0, roughness: 0.95, side: THREE.DoubleSide }),
+    // Air stream colours on the connection collars
+    connUTE: new THREE.MeshStandardMaterial({ color: 0x2f9e44, roughness: 0.5 }),
+    connAVL: new THREE.MeshStandardMaterial({ color: 0x9c5b2e, roughness: 0.5 }),
+    connTILL: new THREE.MeshStandardMaterial({ color: 0x1971c2, roughness: 0.5 }),
+    connFRAN: new THREE.MeshStandardMaterial({ color: 0xe0a800, roughness: 0.5 }),
+    // Damper actuators
+    actuator: new THREE.MeshStandardMaterial({ color: 0x3a3e44, metalness: 0.2, roughness: 0.6 }),
+    fireRed: new THREE.MeshStandardMaterial({ color: 0xc92a2a, metalness: 0.2, roughness: 0.55 }),
   };
 }
 

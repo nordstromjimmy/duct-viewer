@@ -11,6 +11,7 @@ import { dimension } from './dimensions';
 import type { DuctModel } from './duct';
 import { buildEnd, endOverhang, SHEET } from './ends';
 import type { Materials } from './materials';
+import { rectPort } from './ports';
 import { sweepMesh, type Ring } from './sweep';
 
 export function buildSBend(p: SBend, mat: Materials): DuctModel {
@@ -123,5 +124,9 @@ export function buildSBend(p: SBend, mat: Materials): DuctModel {
     section: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
     // Higher than the straight-duct view so the S shape (in the XZ plane) reads clearly
     iso: new THREE.Vector3(1, 1.5, 1.3).normalize(),
+    ports: [
+      rectPort('end1', 'End 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), w, h, p.ends[0]),
+      rectPort('end2', 'End 2', new THREE.Vector3(-p.offset, 0, L), new THREE.Vector3(0, 0, 1), w, h, p.ends[1]),
+    ],
   };
 }

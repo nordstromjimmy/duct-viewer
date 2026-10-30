@@ -1,29 +1,80 @@
 import './style.css';
-import { describe, parseCode } from './codes';
+import { AssemblyController } from './assembly/controller';
+import { describe, parseCode, summary } from './codes';
 import type { Product } from './codes/types';
 import { buildModel } from './geometry';
 import { createMaterials } from './geometry/materials';
+import { Store } from './store';
+import { AccessoryBuilder } from './accessoryBuilder';
+import { UnitBuilder } from './unitBuilder';
 import { Viewer, type ViewName } from './viewer';
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
+const panel = $<HTMLElement>('#panel');
+const viewport = $<HTMLDivElement>('#viewport');
 const form = $<HTMLFormElement>('#code-form');
 const input = $<HTMLInputElement>('#code-input');
 const errorEl = $<HTMLParagraphElement>('#code-error');
 const specList = $<HTMLDListElement>('#spec-list');
 const warningsEl = $<HTMLUListElement>('#warnings');
+const saveBtn = $<HTMLButtonElement>('#save-part');
+const partsList = $<HTMLUListElement>('#parts-list');
+const partsEmpty = $<HTMLParagraphElement>('#parts-empty');
+const partsMessage = $<HTMLParagraphElement>('#parts-message');
 const dimsBtn = $<HTMLButtonElement>('#toggle-dims');
 const insBtn = $<HTMLButtonElement>('#toggle-ins');
 const sectionBtn = $<HTMLButtonElement>('#toggle-section');
+const labelsBtn = $<HTMLButtonElement>('#toggle-labels');
+const rotationReset = $<HTMLButtonElement>('#rotation-reset');
+const rotateBtns = document.querySelectorAll<HTMLButtonElement>('#rotate [data-rotate]');
+const stageHint = $<HTMLParagraphElement>('#stage-hint');
 
 const materials = createMaterials();
-const viewer = new Viewer($('#viewport'), materials);
+const viewer = new Viewer(viewport, materials);
+const store = new Store();
 
+type Mode = 'part' | 'assembly';
+let mode: Mode = 'part';
 let current: Product | null = null;
 let currentView: ViewName = 'iso';
-const state = { dims: true, insulation: true, section: false };
 
-// ---------- Show a code ----------
+/** Toggle state per mode – dimensions are off by default in the assembly (too busy). */
+const toggles = {
+  part: { dims: true, insulation: true, section: false, labels: true },
+  assembly: { dims: false, insulation: true, section: false, labels: true },
+};
+type ToggleKey = keyof typeof toggles.part;
+
+const asm = new AssemblyController(store, viewer, materials, {
+  hint: $('#asm-hint'),
+  warnings: $('#asm-warnings'),
+  selected: $('#asm-selected'),
+  count: $('#asm-count'),
+  undo: $('#asm-undo'),
+  orient: $('#asm-orient'),
+  onView: (code) => {
+    input.value = code;
+    setMode('part');
+  },
+  onRender: () => {
+    applyToggles();
+    showRotation();
+  },
+});
+
+// ---------- Part mode ----------
+
+// Ventilation unit builder: writes an AGG code into the code field and shows it
+const unitBuilder = new UnitBuilder($<HTMLDetailsElement>('#unit-builder'), (code) => {
+  input.value = code;
+  show(code);
+});
+// Silencer & damper builder: same idea, writes an LD or SP code
+const accessoryBuilder = new AccessoryBuilder($<HTMLDetailsElement>('#acc-builder'), (code) => {
+  input.value = code;
+  show(code);
+});
 
 function show(code: string, opts: { updateHash?: boolean } = {}) {
   const result = parseCode(code);
@@ -42,13 +93,16 @@ function show(code: string, opts: { updateHash?: boolean } = {}) {
 
   viewer.setModel(buildModel(product, materials), { resetRotation: newCode });
   showRotation();
-  viewer.setDimensionsVisible(state.dims);
-  viewer.setInsulationVisible(state.insulation);
+  applyToggles();
   viewer.setView(currentView, !firstModel);
 
   insBtn.disabled = product.insulation.side === 'none';
 
   renderSpec(product);
+  unitBuilder.sync(product);
+  accessoryBuilder.sync(product);
+  renderParts();
+  updateSaveButton();
   if (opts.updateHash !== false) history.replaceState(null, '', `#${encodeURIComponent(product.code)}`);
 }
 
@@ -78,7 +132,278 @@ function renderSpec(p: Product) {
   );
 }
 
-// ---------- Events ----------
+function updateSaveButton() {
+  const saved = !!current && store.project.parts.some((p) => p.code === current!.code);
+  saveBtn.disabled = !current || saved;
+  saveBtn.textContent = saved ? '✓ In My parts' : '+ Save to My parts';
+}
+
+// ---------- My parts ----------
+
+function renderParts() {
+  const parts = store.project.parts;
+  partsEmpty.hidden = parts.length > 0;
+  partsList.replaceChildren(
+    ...parts.map((part) => {
+      const li = document.createElement('li');
+      li.className = 'part-item';
+      li.dataset.id = part.id;
+      if (mode === 'part' && part.code === current?.code) li.classList.add('is-current');
+
+      const parsed = parseCode(part.code);
+      const tok = document.createElement('span');
+      tok.className = 'tok';
+      tok.textContent = parsed.ok ? parsed.product.kind : '?';
+
+      const text = document.createElement('div');
+      text.className = 'part-item__text';
+      const name = document.createElement('span');
+      name.className = 'part-item__name';
+      name.textContent = part.name;
+      const code = document.createElement('span');
+      code.className = 'part-item__code';
+      code.textContent = part.code;
+      text.append(name, code);
+
+      const actions = document.createElement('div');
+      actions.className = 'part-item__actions';
+      const btn = (act: string, label: string, title: string, cls: string) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.act = act;
+        b.className = cls;
+        b.textContent = label;
+        b.title = title;
+        actions.append(b);
+      };
+      btn('add', 'Add', 'Add to the assembly', 'add');
+      btn('rename', '✎', 'Rename', 'icon');
+      btn('delete', '×', 'Remove from My parts', 'icon');
+
+      li.append(tok, text, actions);
+      return li;
+    }),
+  );
+}
+
+/** Turn a part's name into a text field; Enter or leaving the field saves, Esc cancels. */
+function startRename(li: HTMLElement, id: string) {
+  const part = store.project.parts.find((p) => p.id === id);
+  const nameEl = li.querySelector<HTMLElement>('.part-item__name');
+  if (!part || !nameEl) return;
+  const field = document.createElement('input');
+  field.value = part.name;
+  nameEl.replaceChildren(field);
+  field.focus();
+  field.select();
+  let done = false;
+  const finish = (save: boolean) => {
+    if (done) return;
+    done = true;
+    const value = field.value.trim();
+    if (save && value && value !== part.name) store.renamePart(id, value);
+    else renderParts();
+  };
+  field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') finish(false);
+    e.stopPropagation();
+  });
+  field.addEventListener('blur', () => finish(true));
+  field.addEventListener('click', (e) => e.stopPropagation());
+}
+
+partsList.addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const li = target.closest<HTMLElement>('.part-item');
+  if (!li) return;
+  const part = store.project.parts.find((p) => p.id === li.dataset.id);
+  if (!part) return;
+  partsMessage.textContent = '';
+
+  const act = target.closest<HTMLButtonElement>('button')?.dataset.act;
+  if (act === 'add') {
+    const err = asm.add(part.code);
+    if (err) partsMessage.textContent = err;
+  } else if (act === 'rename') {
+    startRename(li, part.id);
+  } else if (act === 'delete') {
+    store.removePart(part.id);
+  } else if (mode === 'part' && !target.closest('input')) {
+    input.value = part.code;
+    show(part.code);
+  }
+});
+
+saveBtn.addEventListener('click', () => {
+  if (!current) return;
+  store.savePart(current.code, summary(current));
+});
+
+store.onChange(() => {
+  renderParts();
+  updateSaveButton();
+});
+
+// Export / import the whole project (My parts + assembly)
+$<HTMLButtonElement>('#export-project').addEventListener('click', () => {
+  const blob = new Blob([store.exportJson()], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'duct-project.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+const importFile = $<HTMLInputElement>('#import-file');
+$<HTMLButtonElement>('#import-project').addEventListener('click', () => importFile.click());
+importFile.addEventListener('change', async () => {
+  const file = importFile.files?.[0];
+  importFile.value = '';
+  if (!file) return;
+  const err = store.importJson(await file.text());
+  partsMessage.textContent = err ?? '';
+  if (!err && mode === 'assembly') asm.render(true);
+});
+
+// ---------- Assembly mode ----------
+
+$<HTMLButtonElement>('#asm-undo').addEventListener('click', undo);
+$<HTMLElement>('#asm-orient').addEventListener('click', (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLButtonElement>('button')?.dataset.act;
+  if (act) asm.act(act);
+});
+$<HTMLButtonElement>('#asm-fit').addEventListener('click', () => viewer.fit());
+$<HTMLButtonElement>('#asm-clear').addEventListener('click', () => asm.clear());
+$<HTMLElement>('#asm-selected').addEventListener('click', (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLButtonElement>('button')?.dataset.act;
+  if (act) asm.act(act);
+});
+
+function undo() {
+  if (!store.canUndo) return;
+  store.undo();
+  if (mode === 'assembly') asm.render();
+}
+
+// ---------- Modes ----------
+
+function setMode(next: Mode) {
+  mode = next;
+  panel.dataset.mode = next;
+  viewport.classList.toggle('assembly', next === 'assembly');
+  document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => {
+    const on = b.dataset.mode === next;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  partsMessage.textContent = '';
+  syncToggleButtons();
+
+  if (next === 'assembly') {
+    viewer.onPick = (hit) => asm.pick(hit);
+    stageHint.textContent = 'Click a part to select it · Click an orange end to choose where the next part goes';
+    rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Turn the selected part 90° around its joint' : 'Turn the selected part 90° the other way'));
+    asm.render(true);
+  } else {
+    viewer.onPick = null;
+    stageHint.textContent = 'Drag to rotate · Right-drag to pan · Scroll to zoom';
+    rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Roll the duct 90° counter-clockwise' : 'Roll the duct 90° clockwise'));
+    current = null; // redraw from scratch
+    show(input.value, { updateHash: true });
+  }
+  renderParts();
+}
+
+document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
+  b.addEventListener('click', () => {
+    if (b.dataset.mode !== mode) setMode(b.dataset.mode as Mode);
+  }),
+);
+
+// ---------- Toolbar ----------
+
+function applyToggles() {
+  const t = toggles[mode];
+  viewer.setDimensionsVisible(t.dims && t.labels); // dimension lines without their numbers look odd
+  viewer.setInsulationVisible(t.insulation);
+  viewer.setLabelsVisible(t.labels);
+}
+
+function syncToggleButtons() {
+  const t = toggles[mode];
+  for (const [btn, key] of [[dimsBtn, 'dims'], [insBtn, 'insulation'], [sectionBtn, 'section'], [labelsBtn, 'labels']] as const) {
+    btn.classList.toggle('is-active', t[key]);
+    btn.setAttribute('aria-pressed', String(t[key]));
+  }
+  if (mode === 'assembly') insBtn.disabled = false;
+  viewer.setSection(t.section);
+}
+
+function bindToggle(btn: HTMLButtonElement, key: ToggleKey, apply: (on: boolean) => void) {
+  btn.addEventListener('click', () => {
+    const t = toggles[mode];
+    t[key] = !t[key];
+    btn.classList.toggle('is-active', t[key]);
+    btn.setAttribute('aria-pressed', String(t[key]));
+    apply(t[key]);
+  });
+}
+bindToggle(dimsBtn, 'dims', () => applyToggles());
+bindToggle(insBtn, 'insulation', (on) => viewer.setInsulationVisible(on));
+bindToggle(sectionBtn, 'section', (on) => viewer.setSection(on));
+bindToggle(labelsBtn, 'labels', () => applyToggles());
+
+document.querySelectorAll<HTMLButtonElement>('#views button').forEach((btn) =>
+  btn.addEventListener('click', () => {
+    currentView = btn.dataset.view as ViewName;
+    document.querySelectorAll('#views button').forEach((b) => b.classList.toggle('is-active', b === btn));
+    viewer.setView(currentView);
+  }),
+);
+
+// Rotate: rolls the duct in Part mode, turns the selected part around its joint in Assembly mode
+function showRotation() {
+  const deg = mode === 'part' ? viewer.rotationDegrees : asm.selectedRollDegrees;
+  rotationReset.textContent = deg === null ? '–' : `${deg}°`;
+  rotationReset.disabled = mode === 'part' ? !deg : !asm.selectedIsTurned;
+  rotateBtns.forEach((b) => (b.disabled = deg === null));
+}
+rotateBtns.forEach((btn) =>
+  btn.addEventListener('click', () => {
+    const left = btn.dataset.rotate === 'left';
+    if (mode === 'part') viewer.rotate(left ? 'left' : 'right');
+    else asm.roll(left ? 1 : -1);
+    showRotation();
+  }),
+);
+rotationReset.addEventListener('click', () => {
+  if (mode === 'part') viewer.resetRotation();
+  else asm.resetRoll();
+  showRotation();
+});
+
+$<HTMLButtonElement>('#snapshot').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = viewer.snapshot();
+  a.download = mode === 'assembly' ? 'assembly.png' : `${current?.code.replace(/[^\w-]+/g, '_') ?? 'duct'}.png`;
+  a.click();
+});
+
+// ---------- Keyboard ----------
+
+document.addEventListener('keydown', (e) => {
+  const typing = (e.target as HTMLElement).closest('input, textarea');
+  if (typing) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    undo();
+  } else if (mode === 'assembly' && (e.key === 'Delete' || e.key === 'Backspace')) {
+    e.preventDefault();
+    asm.remove();
+  }
+});
+
+// ---------- Part mode events ----------
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -98,61 +423,9 @@ input.addEventListener('input', () => {
   }, 350);
 });
 
-document.querySelectorAll<HTMLButtonElement>('.examples button').forEach((btn) =>
-  btn.addEventListener('click', () => {
-    input.value = btn.dataset.code!;
-    show(input.value);
-  }),
-);
-
-document.querySelectorAll<HTMLButtonElement>('#views button').forEach((btn) =>
-  btn.addEventListener('click', () => {
-    currentView = btn.dataset.view as ViewName;
-    document.querySelectorAll('#views button').forEach((b) => b.classList.toggle('is-active', b === btn));
-    viewer.setView(currentView);
-  }),
-);
-
-// Roll the duct around its axis; the middle button shows the angle and resets it
-const rotationReset = $<HTMLButtonElement>('#rotation-reset');
-function showRotation() {
-  const deg = viewer.rotationDegrees;
-  rotationReset.textContent = `${deg}°`;
-  rotationReset.disabled = deg === 0;
-}
-document.querySelectorAll<HTMLButtonElement>('#rotate [data-rotate]').forEach((btn) =>
-  btn.addEventListener('click', () => {
-    viewer.rotate(btn.dataset.rotate as 'left' | 'right');
-    showRotation();
-  }),
-);
-rotationReset.addEventListener('click', () => {
-  viewer.resetRotation();
-  showRotation();
-});
-
-function bindToggle(btn: HTMLButtonElement, key: keyof typeof state, apply: (on: boolean) => void) {
-  btn.addEventListener('click', () => {
-    state[key] = !state[key];
-    btn.classList.toggle('is-active', state[key]);
-    btn.setAttribute('aria-pressed', String(state[key]));
-    apply(state[key]);
-  });
-}
-bindToggle(dimsBtn, 'dims', (on) => viewer.setDimensionsVisible(on));
-bindToggle(insBtn, 'insulation', (on) => viewer.setInsulationVisible(on));
-bindToggle(sectionBtn, 'section', (on) => viewer.setSection(on));
-
-$<HTMLButtonElement>('#snapshot').addEventListener('click', () => {
-  const a = document.createElement('a');
-  a.href = viewer.snapshot();
-  a.download = `${current?.code.replace(/[^\w-]+/g, '_') ?? 'duct'}.png`;
-  a.click();
-});
-
 window.addEventListener('hashchange', () => {
   const code = decodeURIComponent(location.hash.slice(1));
-  if (code && code !== current?.code) {
+  if (mode === 'part' && code && code !== current?.code) {
     input.value = code;
     show(code, { updateHash: false });
   }
@@ -162,4 +435,5 @@ window.addEventListener('hashchange', () => {
 
 const initial = decodeURIComponent(location.hash.slice(1)) || 'KK-1-1500-1000-0';
 input.value = initial;
-show(initial);
+$('#asm-count').textContent = store.project.assembly.length ? String(store.project.assembly.length) : '';
+setMode('part');

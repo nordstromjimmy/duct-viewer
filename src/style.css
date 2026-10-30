@@ -270,3 +270,251 @@ button { font: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 .seg .angle:disabled { opacity: 1; color: var(--ink-3); }
+
+/* ---------- Part / Assembly tabs ---------- */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  background: #efede7;
+  border-radius: 8px;
+}
+.tabs button {
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+.tabs button.is-active { color: var(--ink); background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.tabs .count:not(:empty) {
+  margin-left: 4px;
+  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 9px;
+}
+
+/* Show only the current mode's blocks */
+.panel[data-mode='part'] .mode-assembly,
+.panel[data-mode='assembly'] .mode-part { display: none; }
+.mode-part, .mode-assembly { display: flex; flex-direction: column; gap: 24px; }
+
+/* Save to My parts */
+.save-btn {
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+.save-btn:hover:not(:disabled) { border-color: var(--accent); }
+.save-btn:disabled { color: var(--ink-3); background: #efede7; cursor: default; }
+
+/* Small secondary buttons used in several places */
+.asm-actions button,
+.sel-actions button,
+.my-parts__file button,
+.part-item__actions button {
+  padding: 5px 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.asm-actions button:hover:not(:disabled),
+.sel-actions button:hover,
+.my-parts__file button:hover,
+.part-item__actions button:hover { border-color: var(--ink-3); }
+.asm-actions button:disabled { color: var(--ink-3); cursor: default; }
+button.danger { color: var(--error); }
+
+/* ---------- Assembly panel ---------- */
+.asm-hint { margin: 0; line-height: 1.5; color: var(--ink-2); }
+.asm-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.asm-status .warnings:empty { display: none; }
+
+.asm-selected {
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+.asm-selected h2,
+.my-parts h2 {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.sel-head { display: flex; align-items: center; gap: 8px; }
+.sel-code { margin-top: 4px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); word-break: break-all; }
+.sel-joint { margin: 10px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.sel-joint--bad { padding: 6px 8px; color: var(--error); background: #fdecec; border-radius: 5px; }
+.sel-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.sel-actions button[data-act^='roll'] { min-width: 34px; font-size: 15px; line-height: 1; }
+
+/* Shared token style outside the spec list */
+.tok {
+  display: inline-block;
+  padding: 0 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 3px;
+}
+
+/* ---------- My parts ---------- */
+.my-parts__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.my-parts__head h2 { margin: 0; }
+.my-parts__file { display: flex; gap: 4px; }
+.my-parts__file button { padding: 3px 8px; font-size: 11.5px; }
+.my-parts__empty { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
+.parts-list { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.part-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.panel[data-mode='part'] .part-item { cursor: pointer; }
+.panel[data-mode='part'] .part-item:hover { background: #f3f1ec; }
+.part-item.is-current { background: var(--accent-soft); }
+.part-item__text { flex: 1; min-width: 0; }
+.part-item__name { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-item__code { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-item__name input {
+  width: 100%;
+  padding: 2px 4px;
+  font: inherit;
+  border: 1px solid var(--ink-3);
+  border-radius: 4px;
+}
+.part-item__actions { display: flex; gap: 4px; flex-shrink: 0; }
+.part-item__actions .icon { padding: 3px 7px; color: var(--ink-2); }
+.part-item__actions .add { color: #fff; background: var(--ink); border-color: var(--ink); font-weight: 600; }
+.part-item__actions .add:hover { background: #000; }
+.panel[data-mode='part'] .part-item__actions .add,
+.panel[data-mode='assembly'] .part-item.is-current { background: transparent; }
+.panel[data-mode='part'] .part-item__actions .add { display: none; }
+
+/* ---------- Assembly labels in the 3D view ---------- */
+.assembly .scene-label:not(.port-label) { display: none; }
+.joint-warn {
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--error);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Whole-assembly orientation buttons */
+.asm-orient h2 {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.asm-orient .asm-actions { margin-top: 8px; }
+
+/* ---------- Ventilation unit builder ---------- */
+.unit-builder {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.unit-builder summary {
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.ub-tag {
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: #efede7;
+  border-radius: 9px;
+}
+.ub { padding: 0 12px 12px; display: grid; gap: 12px; }
+.ub-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.ub-presets button {
+  padding: 4px 9px;
+  font-size: 12px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.ub-presets button:hover { border-color: var(--ink-3); }
+.ub-dims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ub-dims label { display: grid; gap: 3px; font-size: 11.5px; color: var(--ink-2); }
+.ub input[type='number'],
+.ub select {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.ub select { font-family: var(--sans); }
+.ub-conns { display: grid; gap: 8px; }
+.ub-conn {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--role);
+  border-radius: 6px;
+}
+.ub-conn.is-off { border-left-color: var(--line); }
+.ub-conn.is-off .ub-fields { display: none; }
+.ub-on { display: flex; align-items: center; gap: 7px; font-weight: 600; cursor: pointer; }
+.ub-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--role); }
+.ub-conn.is-off .ub-dot { background: var(--line); }
+.ub-name small { margin-left: 6px; font-weight: 400; color: var(--ink-3); }
+.ub-fields { display: grid; gap: 6px; margin-top: 7px; }
+.ub-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; }
+.ub-place, .ub-size { grid-template-columns: 1fr 1fr; }
+.ub-size label { display: grid; gap: 2px; font-size: 11px; color: var(--ink-3); }
+.ub-size label[hidden] { display: none; }
+.ub-note { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-3); }
+
+/* Connection labels on a unit: coloured edge, shown in the assembly too */
+.scene-label.unit-conn {
+  border-left: 4px solid var(--role);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.assembly .scene-label.unit-conn { display: block; }
+
+/* Silencer & damper builder */
+.ab-extra { display: grid; gap: 6px; }
+.ab-extra label { display: grid; gap: 3px; font-size: 11.5px; color: var(--ink-2); }
+
+/* Labels toggle off: no text in the scene */
+.hide-labels .label-layer { display: none; }

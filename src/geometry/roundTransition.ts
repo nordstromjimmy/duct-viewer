@@ -17,6 +17,7 @@ import { dimension } from './dimensions';
 import type { DuctModel } from './duct';
 import { buildEnd, endOverhang, SHEET } from './ends';
 import type { Materials } from './materials';
+import { rectPort, roundPort } from './ports';
 import { ringMesh } from './shapes';
 
 /** Circle points per quarter. */
@@ -167,5 +168,10 @@ export function buildRoundTransition(p: RoundTransition, mat: Materials): DuctMo
   dims.add(dimension(V(W, -H, 0), V(W, -H, L), V(gap * 0.7, -gap * 0.7, 0), `${p.length}`, 'ffff'));
   root.add(dims);
 
-  return { root, insulation, dimensions: dims, bounds };
+  const ports = [
+    rectPort('end1', 'End 1 · rect', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), w, h, p.ends[0]),
+    roundPort('end2', 'End 2 · round', new THREE.Vector3(off.x, off.y, zTip), new THREE.Vector3(0, 0, 1), p.diameter, p.roundEnd === 'nipple' ? 'NIPPEL' : 'MUFF'),
+  ];
+
+  return { root, insulation, dimensions: dims, bounds, ports };
 }

@@ -146,7 +146,58 @@ export interface Tee extends ProductBase {
   branchEnd: EndCode;
 }
 
-export type Product = StraightDuct | Transition | Bend | SBend | RoundTransition | Tee;
+/** Air streams on a ventilation unit (Swedish names, as used in the code). */
+export type UnitRole = 'UTE' | 'AVL' | 'TILL' | 'FRÅN';
+/** Face of the unit: T = top, F = front, B = back, V = left end, H = right end (seen from the front). */
+export type UnitFace = 'T' | 'F' | 'B' | 'V' | 'H';
+
+export interface UnitConnection {
+  role: UnitRole;
+  face: UnitFace;
+  /** Top/front/back: 1–4 from the left. Ends: 1 = upper, 2 = lower. */
+  slot: number;
+  /** Width (along the length on top/front/back, along the depth on the ends) × height
+   *  (along the depth on top, vertical elsewhere), mm. */
+  w: number;
+  h: number;
+}
+
+/** AGG – generic ventilation unit (aggregat). Not a Crenna product; configured in the app. */
+export interface VentUnit extends ProductBase {
+  kind: 'AGG';
+  /** Outside size, mm: length (along X), depth (front to back), height incl. base frame. */
+  length: number;
+  depth: number;
+  height: number;
+  connections: UnitConnection[];
+}
+
+/** LD – generic silencer (ljuddämpare). Not a specific product. */
+export interface Silencer extends ProductBase {
+  kind: 'LD';
+  /** Opening, mm. */
+  width: number;
+  height: number;
+  length: number;
+  /** Rectangular: number of baffles (kulisser). */
+  baffles: number;
+  /** True when the baffle count was worked out automatically. */
+  autoBaffles: boolean;
+}
+
+/** Damper type: 1 = manual (injustering), 2 = motorised, 3 = fire damper (brandspjäll). */
+export type DamperType = 1 | 2 | 3;
+
+/** SP – generic damper (spjäll). Not a specific product. */
+export interface Damper extends ProductBase {
+  kind: 'SP';
+  type: DamperType;
+  width: number;
+  height: number;
+  length: number;
+}
+
+export type Product = StraightDuct | Transition | Bend | SBend | RoundTransition | Tee | VentUnit | Silencer | Damper;
 
 export type ParseResult<T = Product> =
   | { ok: true; product: T }

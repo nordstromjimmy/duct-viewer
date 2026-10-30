@@ -45,6 +45,10 @@ export class Viewer {
 
   private tween: { from: THREE.Vector3; to: THREE.Vector3; fromT: THREE.Vector3; toT: THREE.Vector3; t: number } | null = null;
   private timer = new THREE.Timer();
+  private raycaster = new THREE.Raycaster();
+
+  /** Called with the clicked object (or null for empty space) when the user clicks the view. */
+  onPick: ((hit: THREE.Object3D | null) => void) | null = null;
   private container: HTMLElement;
   private materials: Materials;
 
@@ -95,6 +99,15 @@ export class Viewer {
 
     this.pivot.add(this.holder);
     this.scene.add(this.pivot);
+
+    // Click (not drag) on the model → report what was hit
+    const down = new THREE.Vector2();
+    this.renderer.domElement.addEventListener('pointerdown', (e) => down.set(e.clientX, e.clientY));
+    this.renderer.domElement.addEventListener('pointerup', (e) => {
+      if (e.button !== 0 || !this.onPick) return;
+      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return; // that was a drag
+      this.onPick(this.pick(e.clientX, e.clientY));
+    });
 
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
@@ -213,13 +226,51 @@ export class Viewer {
     return ((Math.round((this.roll * 180) / Math.PI) % 360) + 360) % 360;
   }
 
+  /** Show/hide every group with this name (one per part in an assembly). */
+  private setNamedVisible(name: string, on: boolean) {
+    this.model?.root.traverse((o) => {
+      if (o.name === name) o.visible = on;
+    });
+  }
+
   setDimensionsVisible(on: boolean) {
-    if (this.model) this.model.dimensions.visible = on;
+    this.setNamedVisible('dimensions', on);
     this.container.classList.toggle('hide-dims', !on);
   }
 
   setInsulationVisible(on: boolean) {
-    if (this.model) this.model.insulation.visible = on;
+    this.setNamedVisible('insulation', on);
+  }
+
+  /**
+   * The camera's right-hand direction, flattened onto the floor and snapped to the nearest
+   * world axis (±X or ±Z). Tipping around this axis tips things towards or away from the viewer.
+   */
+  cameraRightAxis(): THREE.Vector3 {
+    const right = new THREE.Vector3();
+    this.camera.matrixWorld.extractBasis(right, new THREE.Vector3(), new THREE.Vector3());
+    right.y = 0;
+    return Math.abs(right.x) >= Math.abs(right.z)
+      ? new THREE.Vector3(Math.sign(right.x) || 1, 0, 0)
+      : new THREE.Vector3(0, 0, Math.sign(right.z) || 1);
+  }
+
+  /** Re-fit the whole model in view, keeping the current viewing angle. */
+  fit() {
+    if (this.model) this.reframe();
+  }
+
+  /** First visible mesh under a screen point. */
+  private pick(clientX: number, clientY: number): THREE.Object3D | null {
+    if (!this.model) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const isShown = (o: THREE.Object3D | null): boolean => !o || (o.visible && isShown(o.parent));
+    for (const hit of this.raycaster.intersectObject(this.model.root, true)) {
+      if ((hit.object as THREE.Mesh).isMesh && isShown(hit.object)) return hit.object;
+    }
+    return null;
   }
 
   /** Cut the model in half to show the inside. Each model can choose its own cutting plane. */
@@ -233,9 +284,67 @@ export class Viewer {
     }
   }
 
-  /** PNG data URL of the current view. */
+  /**
+   * Show/hide all text in the scene (labels, dimension values, warnings) plus the assembly's
+   * helpers (orange end markers, selection outline) – for clean pictures.
+   */
+  setLabelsVisible(on: boolean) {
+    this.container.classList.toggle('hide-labels', !on);
+    this.model?.root.traverse((o) => {
+      if (o.userData.helper) o.visible = on;
+    });
+  }
+
+  /** PNG data URL of the current view, with any visible labels drawn on top. */
   snapshot(): string {
-    return this.renderer.domElement.toDataURL('image/png');
+    const gl = this.renderer.domElement;
+    const out = document.createElement('canvas');
+    out.width = gl.width;
+    out.height = gl.height;
+    const ctx = out.getContext('2d')!;
+    ctx.drawImage(gl, 0, 0);
+    if (!this.container.classList.contains('hide-labels')) this.drawLabels(ctx, gl);
+    return out.toDataURL('image/png');
+  }
+
+  /** Paint the HTML labels onto the picture, matching how they look on screen. */
+  private drawLabels(ctx: CanvasRenderingContext2D, gl: HTMLCanvasElement) {
+    const base = gl.getBoundingClientRect();
+    const scale = gl.width / base.width;
+    for (const el of Array.from(this.labelRenderer.domElement.children) as HTMLElement[]) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || el.style.display === 'none' || !el.textContent) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.right < base.left || r.left > base.right || r.bottom < base.top || r.top > base.bottom) continue;
+      const x = (r.left - base.left) * scale;
+      const y = (r.top - base.top) * scale;
+      const w = r.width * scale;
+      const h = r.height * scale;
+      const radius = (parseFloat(cs.borderTopLeftRadius) || 0) * scale;
+
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, radius);
+      ctx.fillStyle = cs.backgroundColor;
+      ctx.fill();
+      const border = parseFloat(cs.borderTopWidth) || 0;
+      if (border > 0) {
+        ctx.lineWidth = border * scale;
+        ctx.strokeStyle = cs.borderTopColor;
+        ctx.stroke();
+      }
+      const left = parseFloat(cs.borderLeftWidth) || 0;
+      if (left > border) {
+        ctx.fillStyle = cs.borderLeftColor; // coloured edge on unit connection labels
+        ctx.fillRect(x, y, left * scale, h);
+      }
+
+      ctx.font = `${cs.fontWeight} ${parseFloat(cs.fontSize) * scale}px ${cs.fontFamily}`;
+      ctx.fillStyle = cs.color;
+      ctx.textBaseline = 'middle';
+      const text = cs.textTransform === 'uppercase' ? el.textContent.toUpperCase() : el.textContent;
+      const padLeft = (parseFloat(cs.paddingLeft) + left) * scale;
+      ctx.fillText(text, x + padLeft, y + h / 2, w - padLeft);
+    }
   }
 
   /** Bounding box of the model in the scene, at the current roll or at a given one. */

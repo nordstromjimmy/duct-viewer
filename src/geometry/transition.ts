@@ -11,6 +11,7 @@ import type { DuctModel } from './duct';
 import { buildEnd, endOverhang, SHEET } from './ends';
 import { inflate, lerpRect, loftMesh, rect, type Rect } from './loft';
 import type { Materials } from './materials';
+import { rectPort } from './ports';
 
 function buildInsulation(p: Transition, big: Rect, small: Rect, mat: Materials): THREE.Group {
   const g = new THREE.Group();
@@ -117,5 +118,10 @@ export function buildTransition(p: Transition, mat: Materials): DuctModel {
   const dimensions = buildDimensions(p, big, small, overhang);
   root.add(dimensions);
 
-  return { root, insulation, dimensions, bounds };
+  const ports = [
+    rectPort('end1', 'End 1 · big', new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
+    rectPort('end2', 'End 2 · small', new THREE.Vector3(off.x, off.y, z1), new THREE.Vector3(0, 0, 1), p.smallWidth, p.smallHeight, p.ends[1]),
+  ];
+
+  return { root, insulation, dimensions, bounds, ports };
 }
