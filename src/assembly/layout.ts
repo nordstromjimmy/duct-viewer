@@ -9,6 +9,7 @@ import { parseCode } from '../codes';
 import type { Product } from '../codes/types';
 import { buildModel } from '../geometry';
 import { disposeModel, type DuctModel } from '../geometry/duct';
+import { LOOSE_PG } from '../geometry/ends';
 import type { Materials } from '../geometry/materials';
 import { portsMatch, portSize, type Port, type PortId } from '../geometry/ports';
 import type { AsmPart } from '../store';
@@ -107,7 +108,10 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
       out.problems.push({ id: asm.id, code: asm.code, message: parsed.error });
       continue;
     }
-    const model = buildModel(parsed.product, mat);
+    // A site-cut part is drawn at its cut length (the code stays what's ordered)
+    const product = withCut(parsed.product, asm.cut);
+    const model = buildModel(product, mat);
+    dropLoosePG(model);
     const own = model.ports.find((p) => p.id === asm.via) ?? model.ports[0];
 
     let matrix: THREE.Matrix4;
@@ -146,7 +150,7 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
     const ports = model.ports.map((p) => worldPort(asm.id, p, matrix));
     if (asm.parent !== null) ports.find((p) => p.port.id === own.id)!.connected = true;
 
-    const laid: LaidPart = { asm, product: parsed.product, model, matrix, ports };
+    const laid: LaidPart = { asm, product, model, matrix, ports };
     out.parts.push(laid);
     byId.set(asm.id, laid);
 
@@ -160,6 +164,42 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
     out.problems.push({ id: w.id, code: w.code, message: 'Not connected to the assembly.' });
   }
   return out;
+}
+
+/**
+ * Loose PG sets float in front of their end in the Part tab, to show what's delivered. In the
+ * assembly they're just in the way, so they're removed and the part is measured again without them.
+ */
+function dropLoosePG(model: DuctModel) {
+  const found: THREE.Object3D[] = [];
+  model.root.traverse((o) => {
+    if (o.name === LOOSE_PG) found.push(o);
+  });
+  if (!found.length) return;
+  for (const o of found) {
+    disposeModel(o);
+    o.removeFromParent();
+  }
+  // The builders put the physical parts in the root's first child
+  model.bounds = new THREE.Box3().setFromObject(model.root.children[0] ?? model.root);
+}
+
+/** Shortest cut length allowed, mm. */
+export const MIN_CUT = 50;
+
+/**
+ * Can this part be cut to length on site? Straight ducts ordered with a loose PG (L) or plain
+ * (P) end – the end that's left open for cutting.
+ */
+export function canCut(p: Product): boolean {
+  return p.kind === 'KK' && (p.ends.includes('L') || p.ends.includes('P'));
+}
+
+/** The product as drawn: shortened to the cut length when there is one. */
+export function withCut(p: Product, cut: number | undefined): Product {
+  if (!cut || !canCut(p) || p.kind !== 'KK') return p;
+  const length = Math.max(MIN_CUT, Math.min(cut, p.length));
+  return length === p.length ? p : { ...p, length };
 }
 
 /** Values a quarter-turn quaternion's components can take. */

@@ -25,6 +25,8 @@ export interface AsmPart {
   via: PortId;
   /** Roll around the joint, in quarter turns (0–3). */
   roll: number;
+  /** Planned site cut: the length (mm) a part ordered with a loose/plain end is cut to. */
+  cut?: number;
   /**
    * First part only: extra tip/turn in world space, as a quaternion [x, y, z, w] made of
    * quarter turns. Tipping the first part tips the whole assembly.

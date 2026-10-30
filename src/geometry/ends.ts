@@ -8,6 +8,9 @@ import type { EndCode } from '../codes/types';
 import type { Materials } from './materials';
 import { ringMesh, spacedPositions } from './shapes';
 
+/** Name of the group showing a loose PG set floating in front of an L end. */
+export const LOOSE_PG = 'loosePG';
+
 /** Sheet thickness, mm (visual). */
 export const SHEET = 1;
 /** PG profile height outward from the duct wall, mm (the "20" in the datasheet drawing). */
@@ -113,13 +116,17 @@ function label(text: string, x: number, y: number, z: number, className = 'scene
 /** Plain end, with the PG set shown floating loose in front of it. */
 function looseEnd(ctx: EndContext): THREE.Group {
   const g = new THREE.Group();
+  // Everything that shows the loose set is in one group, so the assembly can drop it
   const loose = new THREE.Group();
-  loose.add(pgProfile(ctx, ctx.mat.loose));
-  loose.add(pgCorners(ctx, ctx.mat.loose));
+  loose.name = LOOSE_PG;
+  const set = new THREE.Group();
+  set.add(pgProfile(ctx, ctx.mat.loose));
+  set.add(pgCorners(ctx, ctx.mat.loose));
   const gap = Math.max(150, Math.min(ctx.w, ctx.h) * 0.3);
-  loose.position.z = gap;
+  set.position.z = gap;
+  loose.add(set);
+  loose.add(label('Loose PG set', 0, ctx.h / 2 + PG_HEIGHT + 40, gap, 'scene-label scene-label--accent'));
   g.add(loose);
-  g.add(label('Loose PG set', 0, ctx.h / 2 + PG_HEIGHT + 40, gap, 'scene-label scene-label--accent'));
   return g;
 }
 

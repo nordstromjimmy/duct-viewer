@@ -6,7 +6,7 @@ import type { Materials } from '../geometry/materials';
 import { portSize, type PortId } from '../geometry/ports';
 import { newId, type AsmPart, type Store } from '../store';
 import type { Viewer } from '../viewer';
-import { addQuarterTurn, bestFit, bestRoll, layout, portsOf, type Layout } from './layout';
+import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, portsOf, type Layout } from './layout';
 import { buildAssemblyScene, type PortRef } from './scene';
 
 export interface AssemblyUi {
@@ -154,7 +154,80 @@ export class AssemblyController {
 
     const head = el('div', 'sel-head');
     head.append(el('span', 'tok', laid.product.kind), el('strong', '', summary(laid.product)));
-    box.replaceChildren(el('h2', '', 'Selected part'), head, el('div', 'sel-code', asm.code), el('p', jointCls, joint), actions);
+    box.replaceChildren(el('h2', '', 'Selected part'), head, el('div', 'sel-code', asm.code), el('p', jointCls, joint));
+    const cut = this.cutSection(asm);
+    if (cut) box.append(cut);
+    box.append(actions);
+  }
+
+  /** "Cut length" field for straight ducts with a loose/plain end, or a hint for other straight ducts. */
+  private cutSection(asm: AsmPart): HTMLElement | null {
+    const parsed = parseCode(asm.code);
+    if (!parsed.ok || parsed.product.kind !== 'KK') return null;
+    const ordered = parsed.product.length;
+    const wrap = document.createElement('div');
+    wrap.className = 'sel-cut';
+
+    if (!canCut(parsed.product)) {
+      wrap.classList.add('sel-cut--hint');
+      wrap.textContent = 'To cut this duct to length on site, order it with a loose (L) or plain (P) end, e.g. PG/L.';
+      return wrap;
+    }
+
+    const current = asm.cut && asm.cut < ordered ? asm.cut : ordered;
+    const label = document.createElement('label');
+    label.textContent = 'Cut length';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.name = 'cut';
+    input.min = String(MIN_CUT);
+    input.max = String(ordered);
+    input.step = '10';
+    input.value = String(current);
+    label.append(input);
+    const unit = document.createElement('span');
+    unit.className = 'sel-cut__of';
+    unit.textContent = `mm · ordered ${ordered}`;
+    wrap.append(label, unit);
+
+    if (current < ordered) {
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.dataset.act = 'cut-reset';
+      reset.textContent = 'Full length';
+      wrap.append(reset);
+    }
+    const msg = document.createElement('p');
+    msg.className = 'sel-cut__msg';
+    wrap.append(msg);
+
+    // Apply on Enter or when leaving the field
+    input.addEventListener('change', () => {
+      const v = Math.round(Number(input.value));
+      if (!(v >= MIN_CUT)) {
+        msg.textContent = `At least ${MIN_CUT} mm.`;
+        return;
+      }
+      if (v > ordered) {
+        msg.textContent = `Can't be longer than the ordered ${ordered} mm.`;
+        input.value = String(current);
+        return;
+      }
+      this.setCut(asm.id, v >= ordered ? undefined : v);
+    });
+    return wrap;
+  }
+
+  /** Set (or clear, with undefined) the site cut of a part. */
+  setCut(id: string, length: number | undefined) {
+    if (this.find(id)?.cut === length) return;
+    this.store.update((p) => {
+      const a = p.assembly.find((x) => x.id === id);
+      if (!a) return;
+      if (length === undefined) delete a.cut;
+      else a.cut = length;
+    });
+    this.render();
   }
 
   /** Handle a button in the selected-part card. */
@@ -173,6 +246,10 @@ export class AssemblyController {
         return;
       }
       case 'remove': return this.remove();
+      case 'cut-reset': {
+        if (this.selectedPart) this.setCut(this.selectedPart, undefined);
+        return;
+      }
     }
   }
 
