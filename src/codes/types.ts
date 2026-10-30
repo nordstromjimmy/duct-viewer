@@ -128,7 +128,25 @@ export interface RoundTransition extends ProductBase {
   roundEnd: RoundEnd;
 }
 
-export type Product = StraightDuct | Transition | Bend | SBend | RoundTransition;
+/**
+ * KT – T-piece (T-stycke). Ends 1 and 2 are the straight run (bbbb x cccc), end 3 the side
+ * branch (eeee x cccc). `ends` holds ends 1 and 2, `branchEnd` end 3.
+ */
+export interface Tee extends ProductBase {
+  kind: 'KT';
+  /** 1 = legs 130/130/130, 2 = custom legs from a sketch (drawn as 130). */
+  variant: 1 | 2;
+  /** Run opening, mm (bbbb x cccc). */
+  width: number;
+  height: number;
+  /** Branch width along the run, mm (eeee). The branch height is cccc. */
+  branchWidth: number;
+  /** Leg lengths, mm: [ben 1, ben 2, ben 3]. */
+  legs: [number, number, number];
+  branchEnd: EndCode;
+}
+
+export type Product = StraightDuct | Transition | Bend | SBend | RoundTransition | Tee;
 
 export type ParseResult<T = Product> =
   | { ok: true; product: T }

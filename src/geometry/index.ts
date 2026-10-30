@@ -7,6 +7,7 @@ import type { Materials } from './materials';
 import { buildRoundTransition } from './roundTransition';
 import { buildSBend } from './sbend';
 import { buildTransition } from './transition';
+import { buildTee } from './tee'; 
 
 export function buildModel(p: Product, mat: Materials): DuctModel {
   switch (p.kind) {
@@ -15,5 +16,6 @@ export function buildModel(p: Product, mat: Materials): DuctModel {
     case 'KB': return buildBend(p, mat);
     case 'KS': return buildSBend(p, mat);
     case 'KÖ': return buildRoundTransition(p, mat);
+    case 'KT': return buildTee(p, mat);
   }
 }

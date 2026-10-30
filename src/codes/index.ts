@@ -6,6 +6,7 @@ import { describeKD, parseKD } from './kd';
 import { describeKK, parseKK } from './kk';
 import { describeKO, parseKO } from './ko';
 import { describeKS, parseKS } from './ks';
+import { describeKT, parseKT } from './kt'; 
 import { normalise } from './common';
 import type { ParseResult, Product, SpecRow } from './types';
 
@@ -15,7 +16,8 @@ const PARSERS: Record<string, (input: string) => ParseResult> = {
   KB: parseKB,
   KS: parseKS,
   KÖ: parseKO,
-  KO: parseKO, // KÖ typed without Ö
+  KO: parseKO, 
+  KT: parseKT, 
 };
 
 export function parseCode(input: string): ParseResult {
@@ -36,5 +38,6 @@ export function describe(p: Product): SpecRow[] {
     case 'KB': return describeKB(p);
     case 'KS': return describeKS(p);
     case 'KÖ': return describeKO(p);
+    case 'KT': return describeKT(p);
   }
 }
