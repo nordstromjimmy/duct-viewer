@@ -69,7 +69,13 @@ export interface AssemblyScene {
   openPorts: WorldPort[];
 }
 
-export function buildAssemblyScene(lay: Layout, selectedPart: string | null, target: PortRef | null): AssemblyScene {
+export function buildAssemblyScene(
+  lay: Layout,
+  selectedPart: string | null,
+  target: PortRef | null,
+  /** Detail number per part id, shown as a small badge on each part. */
+  details: Map<string, number> = new Map(),
+): AssemblyScene {
   const root = new THREE.Group();
   const bounds = new THREE.Box3();
   const openPorts: WorldPort[] = [];
@@ -78,6 +84,13 @@ export function buildAssemblyScene(lay: Layout, selectedPart: string | null, tar
     const r = part.model.root;
     r.userData.partId = part.asm.id;
     r.matrixAutoUpdate = false;
+
+    // Detail number badge in the middle of the part (like the label on the real part)
+    const detail = details.get(part.asm.id);
+    if (detail !== undefined) {
+      const centre = part.model.bounds.getCenter(new THREE.Vector3()).applyMatrix4(part.matrix);
+      root.add(label(String(detail), 'detail-badge', centre));
+    }
     r.matrix.copy(part.matrix);
     root.add(r);
     bounds.union(part.model.bounds.clone().applyMatrix4(part.matrix));

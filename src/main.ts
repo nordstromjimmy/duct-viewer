@@ -53,6 +53,7 @@ const asm = new AssemblyController(store, viewer, materials, {
   count: $('#asm-count'),
   undo: $('#asm-undo'),
   orient: $('#asm-orient'),
+  order: $('#asm-order'),
   onView: (code) => {
     input.value = code;
     setMode('part');
@@ -268,6 +269,30 @@ importFile.addEventListener('change', async () => {
 // ---------- Assembly mode ----------
 
 $<HTMLButtonElement>('#asm-undo').addEventListener('click', undo);
+
+// Order list: copy to clipboard or download as a text file
+$<HTMLElement>('#asm-order').addEventListener('click', async (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-order]')?.dataset.order;
+  if (!act) return;
+  const text = asm.orderText();
+  const status = $<HTMLElement>('#asm-order .order-copied');
+  if (act === 'copy') {
+    try {
+      await navigator.clipboard.writeText(text);
+      status.textContent = 'Copied – paste it into the order form.';
+    } catch {
+      status.textContent = 'Couldn\'t copy here – use Download .txt instead.';
+    }
+    setTimeout(() => (status.textContent = ''), 3000);
+  } else {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `bestallning-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+});
 $<HTMLElement>('#asm-orient').addEventListener('click', (e) => {
   const act = (e.target as HTMLElement).closest<HTMLButtonElement>('button')?.dataset.act;
   if (act) asm.act(act);

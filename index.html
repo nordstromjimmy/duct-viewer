@@ -85,6 +85,22 @@
             </div>
           </section>
           <section id="asm-selected" class="asm-selected" hidden></section>
+          <section id="asm-order" class="asm-order">
+            <div class="asm-order__head">
+              <h2>Order list</h2>
+              <div class="asm-order__actions">
+                <button type="button" data-order="copy" title="Copy the order lines, ready to paste">Copy</button>
+                <button type="button" data-order="download" title="Download as a text file">Download .txt</button>
+              </div>
+            </div>
+            <table class="order-table">
+              <thead><tr><th>Detail</th><th>Qty</th><th>Order code</th><th>Ends</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <p class="order-empty">Add parts to the assembly to build the order list.</p>
+            <p class="order-note"></p>
+            <p class="order-copied" role="status"></p>
+          </section>
         </div>
 
         <section class="my-parts">

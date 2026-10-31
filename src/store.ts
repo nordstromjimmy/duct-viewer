@@ -38,6 +38,8 @@ export interface Project {
   version: 1;
   parts: SavedPart[];
   assembly: AsmPart[];
+  /** Detail numbers set by hand on the order list, per code. Codes left out are numbered automatically. */
+  details?: Record<string, number>;
 }
 
 const KEY = 'duct-viewer:project';
@@ -145,6 +147,17 @@ export class Store {
     return out;
   }
 
+  /** Set the detail number for a code on the order list, or undefined to number it automatically. */
+  setDetail(code: string, detail: number | undefined) {
+    if ((this.project.details?.[code] ?? undefined) === detail) return;
+    this.update((p) => {
+      const d = { ...(p.details ?? {}) };
+      if (detail === undefined) delete d[code];
+      else d[code] = detail;
+      p.details = d;
+    });
+  }
+
   // ---------- File ----------
 
   exportJson(): string {
@@ -163,6 +176,7 @@ export class Store {
     this.update((p) => {
       p.parts = data.parts;
       p.assembly = data.assembly;
+      p.details = data.details;
     });
     return null;
   }

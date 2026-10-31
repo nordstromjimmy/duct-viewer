@@ -7,6 +7,7 @@ import { portSize, type PortId } from '../geometry/ports';
 import { newId, type AsmPart, type Store } from '../store';
 import type { Viewer } from '../viewer';
 import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, portsOf, type Layout } from './layout';
+import { buildOrder, lineText, orderText as orderTextOf, type Order } from './order';
 import { buildAssemblyScene, type PortRef } from './scene';
 
 export interface AssemblyUi {
@@ -17,6 +18,8 @@ export interface AssemblyUi {
   undo: HTMLButtonElement;
   /** Box with the stand up / tip / turn buttons for the whole assembly. */
   orient: HTMLElement;
+  /** Order list section (table + notes). */
+  order: HTMLElement;
   /** Show a part's code in the Part tab. */
   onView: (code: string) => void;
   /** Called after every redraw (e.g. to update the toolbar). */
@@ -27,6 +30,8 @@ export class AssemblyController {
   selectedPart: string | null = null;
   target: PortRef | null = null;
   private lay: Layout | null = null;
+  /** The order list for the current assembly. */
+  order: Order | null = null;
   private store: Store;
   private viewer: Viewer;
   private mat: Materials;
@@ -65,7 +70,8 @@ export class AssemblyController {
       this.target = last ? { partId: last.partId, portId: last.port.id } : null;
     }
 
-    const scene = buildAssemblyScene(lay, this.selectedPart, this.target);
+    this.order = buildOrder(this.store.project);
+    const scene = buildAssemblyScene(lay, this.selectedPart, this.target, this.order.detailOf);
     this.viewer.setModel(scene.model, { resetRotation: true });
     if (fit) this.viewer.fit();
 
@@ -102,6 +108,73 @@ export class AssemblyController {
     );
 
     this.renderSelected();
+    this.renderOrder();
+  }
+
+  /** The order list table: detail no. (editable) – qty – code – end types. */
+  private renderOrder() {
+    const box = this.ui.order;
+    const order = this.order;
+    const table = box.querySelector<HTMLTableSectionElement>('tbody')!;
+    const note = box.querySelector<HTMLElement>('.order-note')!;
+    const empty = !order || (order.lines.length === 0 && order.other.length === 0);
+    box.classList.toggle('is-empty', empty);
+    box.querySelectorAll<HTMLButtonElement>('[data-order]').forEach((b) => (b.disabled = empty));
+    if (!order) return;
+
+    table.replaceChildren(
+      ...order.lines.map((l) => {
+        const tr = document.createElement('tr');
+        tr.dataset.code = l.code;
+        if (l.partIds.includes(this.selectedPart ?? '')) tr.classList.add('is-selected');
+        if (order.duplicates.includes(l.detail)) tr.classList.add('is-dup');
+        const td = (text: string, cls = '') => {
+          const c = document.createElement('td');
+          c.className = cls;
+          c.textContent = text;
+          return c;
+        };
+        const nr = document.createElement('td');
+        nr.append(this.detailInput(l.code, l.detail, l.manual));
+        const codeCell = td(l.base, 'order-code');
+        codeCell.title = lineText(l);
+        tr.append(nr, td(String(l.count), 'order-qty'), codeCell, td(l.ends || '–', 'order-ends'));
+        return tr;
+      }),
+    );
+
+    const notes: string[] = [];
+    if (order.duplicates.length) notes.push(`Detail no. ${order.duplicates.join(', ')} is used more than once.`);
+    const cuts = order.lines.reduce((n, l) => n + l.cuts.length, 0);
+    if (cuts) notes.push(`${cuts} planned site cut${cuts === 1 ? '' : 's'} – listed in the exported text.`);
+    if (order.other.length) {
+      const n = order.other.reduce((s, o) => s + o.count, 0);
+      notes.push(`${n} non-Crenna part${n === 1 ? '' : 's'} (unit, silencers, dampers) listed separately in the text.`);
+    }
+    note.textContent = notes.join(' ');
+  }
+
+  /** Small number field for a line's detail number. Clearing it goes back to automatic. */
+  private detailInput(code: string, value: number, manual: boolean): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.step = '1';
+    input.value = String(value);
+    input.className = 'detail-input' + (manual ? ' is-manual' : '');
+    input.title = manual ? 'Set by hand – clear to number automatically' : 'Automatic – type to set your own';
+    input.setAttribute('aria-label', 'Detail number');
+    input.addEventListener('change', () => {
+      const v = Math.round(Number(input.value));
+      this.store.setDetail(code, input.value.trim() === '' || !(v >= 1) ? undefined : v);
+      this.render();
+    });
+    return input;
+  }
+
+  /** Text for the order form, ready to paste or save. */
+  orderText(): string {
+    return this.order ? orderTextOf(this.order) : '';
   }
 
   private renderSelected() {
@@ -155,6 +228,16 @@ export class AssemblyController {
     const head = el('div', 'sel-head');
     head.append(el('span', 'tok', laid.product.kind), el('strong', '', summary(laid.product)));
     box.replaceChildren(el('h2', '', 'Selected part'), head, el('div', 'sel-code', asm.code), el('p', jointCls, joint));
+    const line = this.order?.lines.find((l) => l.partIds.includes(asm.id));
+    if (line) {
+      const row = el('div', 'sel-detail');
+      const lab = el('label', '', 'Detail no.');
+      lab.append(this.detailInput(line.code, line.detail, line.manual));
+      row.append(lab, el('span', 'sel-cut__of', line.count > 1 ? `${line.count} of this code in the assembly` : 'only one of this code'));
+      box.append(row);
+    } else if (this.order?.other.some((o) => o.partIds.includes(asm.id))) {
+      box.append(el('div', 'sel-detail sel-cut--hint', 'Not a Crenna part – listed under “Övrigt” in the order text.'));
+    }
     const cut = this.cutSection(asm);
     if (cut) box.append(cut);
     box.append(actions);
