@@ -28,6 +28,7 @@
           <button type="button" role="tab" data-mode="assembly" aria-selected="false">
             Assembly <span id="asm-count" class="count"></span>
           </button>
+          <button type="button" role="tab" data-mode="room" aria-selected="false">Room</button>
         </div>
 
         <div class="mode-part">
@@ -103,6 +104,39 @@
           </section>
         </div>
 
+        <div class="mode-room" id="room-panel">
+          <section>
+            <p class="room-hint asm-hint"></p>
+            <div class="asm-actions">
+              <button type="button" data-room="draw">✎ Draw walls</button>
+              <button type="button" data-room="stop" hidden>Stop drawing</button>
+              <button type="button" data-room="clear" class="danger">Remove room</button>
+            </div>
+          </section>
+          <section class="room-settings" hidden>
+            <h2>Room</h2>
+            <div class="room-grid">
+              <label>Height (inside)<span><input type="number" name="height" min="500" step="50" /> mm</span></label>
+              <label>Wall thickness<span><input type="number" name="thickness" min="20" step="10" /> mm</span></label>
+              <label>Floor level<span><input type="number" name="floorY" step="10" /> mm</span></label>
+              <button type="button" data-room="floor-auto" title="Put the floor at the lowest point of the assembly">Floor at lowest part</button>
+            </div>
+            <div class="room-checks">
+              <label><input type="checkbox" name="floor" /> Floor</label>
+              <label><input type="checkbox" name="roof" /> Roof</label>
+              <label><input type="checkbox" name="seeThrough" /> See-through walls</label>
+            </div>
+          </section>
+          <section class="room-walls" hidden>
+            <h2>Wall lengths</h2>
+            <table class="room-table"><tbody></tbody></table>
+          </section>
+          <section>
+            <h2>Collisions</h2>
+            <ul class="room-collisions warnings"></ul>
+          </section>
+        </div>
+
         <section class="my-parts">
           <div class="my-parts__head">
             <h2>My parts</h2>
@@ -142,6 +176,7 @@
             <button type="button" id="toggle-ins" class="is-active" aria-pressed="true">Insulation</button>
             <button type="button" id="toggle-section" aria-pressed="false">Section</button>
             <button type="button" id="toggle-labels" class="is-active" aria-pressed="true" title="Show/hide all text in the scene">Labels</button>
+            <button type="button" id="toggle-room" class="is-active" aria-pressed="true" title="Show/hide the walls, floor and roof" hidden>Room</button>
           </div>
           <button type="button" id="snapshot" class="ghost">Save PNG</button>
         </div>

@@ -2,6 +2,7 @@
 // Kept in the browser's localStorage, with export/import to a file and an undo history.
 
 import type { PortId } from './geometry/ports';
+import type { Room } from './room/model';
 
 /** A product code saved to "My parts". */
 export interface SavedPart {
@@ -40,6 +41,8 @@ export interface Project {
   assembly: AsmPart[];
   /** Detail numbers set by hand on the order list, per code. Codes left out are numbered automatically. */
   details?: Record<string, number>;
+  /** Walls, floor and roof drawn around the assembly. */
+  room?: Room;
 }
 
 const KEY = 'duct-viewer:project';
@@ -177,6 +180,7 @@ export class Store {
       p.parts = data.parts;
       p.assembly = data.assembly;
       p.details = data.details;
+      p.room = data.room;
     });
     return null;
   }

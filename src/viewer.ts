@@ -49,6 +49,12 @@ export class Viewer {
 
   /** Called with the clicked object (or null for empty space) when the user clicks the view. */
   onPick: ((hit: THREE.Object3D | null) => void) | null = null;
+  /** Mouse ray hooks, used by the room drawing tool. */
+  onPointerMove: ((ray: THREE.Ray) => void) | null = null;
+  onClickRay: ((ray: THREE.Ray) => void) | null = null;
+  onDoubleClick: ((ray: THREE.Ray) => void) | null = null;
+  /** Temporary drawings in world coordinates (e.g. the wall being drawn). Not part of the model. */
+  readonly overlay = new THREE.Group();
   private container: HTMLElement;
   private materials: Materials;
 
@@ -104,10 +110,14 @@ export class Viewer {
     const down = new THREE.Vector2();
     this.renderer.domElement.addEventListener('pointerdown', (e) => down.set(e.clientX, e.clientY));
     this.renderer.domElement.addEventListener('pointerup', (e) => {
-      if (e.button !== 0 || !this.onPick) return;
+      if (e.button !== 0) return;
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return; // that was a drag
-      this.onPick(this.pick(e.clientX, e.clientY));
+      this.onClickRay?.(this.rayAt(e.clientX, e.clientY));
+      this.onPick?.(this.pick(e.clientX, e.clientY));
     });
+    this.renderer.domElement.addEventListener('pointermove', (e) => this.onPointerMove?.(this.rayAt(e.clientX, e.clientY)));
+    this.renderer.domElement.addEventListener('dblclick', (e) => this.onDoubleClick?.(this.rayAt(e.clientX, e.clientY)));
+    this.scene.add(this.overlay);
 
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
@@ -260,15 +270,29 @@ export class Viewer {
     if (this.model) this.reframe();
   }
 
-  /** First visible mesh under a screen point. */
-  private pick(clientX: number, clientY: number): THREE.Object3D | null {
-    if (!this.model) return null;
+  /** The camera ray through a screen point. */
+  rayAt(clientX: number, clientY: number): THREE.Ray {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
+    return this.raycaster.ray.clone();
+  }
+
+  /** How many mm one screen pixel covers at a world point (for snapping distances). */
+  mmPerPixel(at: THREE.Vector3): number {
+    const dist = this.camera.position.distanceTo(at);
+    const h = this.renderer.domElement.clientHeight || 1;
+    return (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / h;
+  }
+
+  /** First visible mesh under a screen point (skipping anything marked noPick, like the room). */
+  private pick(clientX: number, clientY: number): THREE.Object3D | null {
+    if (!this.model) return null;
+    this.rayAt(clientX, clientY);
     const isShown = (o: THREE.Object3D | null): boolean => !o || (o.visible && isShown(o.parent));
+    const pickable = (o: THREE.Object3D | null): boolean => !o || (!o.userData.noPick && pickable(o.parent));
     for (const hit of this.raycaster.intersectObject(this.model.root, true)) {
-      if ((hit.object as THREE.Mesh).isMesh && isShown(hit.object)) return hit.object;
+      if ((hit.object as THREE.Mesh).isMesh && isShown(hit.object) && pickable(hit.object)) return hit.object;
     }
     return null;
   }
@@ -293,6 +317,12 @@ export class Viewer {
     this.model?.root.traverse((o) => {
       if (o.userData.helper) o.visible = on;
     });
+  }
+
+  /** Show or hide the drawn room (walls, floor, roof and their labels). */
+  setRoomVisible(on: boolean) {
+    const room = this.model?.root.getObjectByName('room');
+    if (room) room.visible = on;
   }
 
   /** PNG data URL of the current view, with any visible labels drawn on top. */

@@ -9,6 +9,8 @@ import type { Viewer } from '../viewer';
 import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, portsOf, type Layout } from './layout';
 import { buildOrder, lineText, orderText as orderTextOf, type Order } from './order';
 import { buildAssemblyScene, type PortRef } from './scene';
+import { findCollisions, type Collision } from '../room/collide';
+import { buildRoomGroup } from '../room/model';
 
 export interface AssemblyUi {
   hint: HTMLElement;
@@ -32,6 +34,10 @@ export class AssemblyController {
   private lay: Layout | null = null;
   /** The order list for the current assembly. */
   order: Order | null = null;
+  /** Parts hitting the room's walls or roof. */
+  collisions: Collision[] = [];
+  /** True in the Room tab: no end markers or selection, the room is being drawn. */
+  roomMode = false;
   private store: Store;
   private viewer: Viewer;
   private mat: Materials;
@@ -71,7 +77,24 @@ export class AssemblyController {
     }
 
     this.order = buildOrder(this.store.project);
-    const scene = buildAssemblyScene(lay, this.selectedPart, this.target, this.order.detailOf);
+    const room = this.store.project.room;
+    this.collisions = room ? findCollisions(room, lay) : [];
+    const scene = buildAssemblyScene(
+      lay,
+      this.roomMode ? null : this.selectedPart,
+      this.roomMode ? null : this.target,
+      this.order.detailOf,
+      new Set(this.collisions.map((c) => c.partId)),
+      !this.roomMode,
+    );
+    // The room is drawn in the same space, at the same scale (mm)
+    if (room && room.points.length >= 2) {
+      const g = buildRoomGroup(room);
+      scene.model.root.add(g);
+      scene.model.bounds.union(new THREE.Box3().setFromObject(g));
+    }
+    // Nothing built yet (e.g. drawing a room first): frame a 6 × 6 m floor so the camera has a scale
+    if (scene.model.bounds.isEmpty()) scene.model.bounds.set(new THREE.Vector3(-3000, 0, -3000), new THREE.Vector3(3000, 0, 3000));
     this.viewer.setModel(scene.model, { resetRotation: true });
     if (fit) this.viewer.fit();
 
@@ -99,6 +122,7 @@ export class AssemblyController {
     for (const p of this.lay?.problems ?? []) notes.push(`${p.code}: ${p.message}`);
     const bad = this.lay?.joints.filter((j) => !j.ok) ?? [];
     if (bad.length) notes.push(`${bad.length} joint${bad.length === 1 ? '' : 's'} where the sizes don't match (red flags).`);
+    notes.push(...this.collisionTexts());
     this.ui.warnings.replaceChildren(
       ...notes.map((t) => {
         const li = document.createElement('li');
@@ -170,6 +194,25 @@ export class AssemblyController {
       this.render();
     });
     return input;
+  }
+
+  /** One line per collision: "Detail 3 · KB-1-800-500-0 passes through wall 2". */
+  collisionTexts(): string[] {
+    return this.collisions.map((c) => {
+      const a = this.find(c.partId);
+      const d = this.order?.detailOf.get(c.partId);
+      const who = `${d !== undefined ? `Detail ${d} · ` : ''}${a?.code ?? '?'}`;
+      return c.target === 'roof' ? `${who} hits the roof.` : `${who} passes through wall ${c.wall! + 1}.`;
+    });
+  }
+
+  /** Lowest point of the assembly (where a room's floor goes by default), mm. */
+  assemblyFloorY(): number {
+    const parts = this.lay?.parts ?? [];
+    if (!parts.length) return 0;
+    let min = Infinity;
+    for (const p of parts) min = Math.min(min, p.model.bounds.clone().applyMatrix4(p.matrix).min.y);
+    return Math.round(min);
   }
 
   /** Text for the order form, ready to paste or save. */

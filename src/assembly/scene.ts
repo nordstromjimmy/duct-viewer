@@ -24,6 +24,7 @@ const markerFillActive = markerFill.clone();
 markerFillActive.opacity = 0.85;
 const markerEdge = new THREE.LineBasicMaterial({ color: ACCENT });
 const outlineMat = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true, opacity: 0.9 });
+const collideMat = new THREE.LineBasicMaterial({ color: 0xe03131, depthTest: false, transparent: true, opacity: 0.95 });
 
 /** How far in front of the opening the marker floats, mm (clear of PG profiles and flanges). */
 const MARKER_GAP = 30;
@@ -75,6 +76,10 @@ export function buildAssemblyScene(
   target: PortRef | null,
   /** Detail number per part id, shown as a small badge on each part. */
   details: Map<string, number> = new Map(),
+  /** Parts that hit a wall or the roof – outlined in red. */
+  colliding: Set<string> = new Set(),
+  /** Show the orange end markers (off while drawing the room). */
+  markers = true,
 ): AssemblyScene {
   const root = new THREE.Group();
   const bounds = new THREE.Box3();
@@ -105,9 +110,18 @@ export function buildAssemblyScene(
       helper.userData.helper = true;
       r.add(helper);
     }
+    if (colliding.has(part.asm.id)) {
+      const box = part.model.bounds.clone().expandByScalar(part.asm.id === selectedPart ? 40 : 20);
+      const helper = new THREE.Box3Helper(box, 0xe03131);
+      helper.material = collideMat;
+      helper.renderOrder = 10;
+      helper.raycast = () => {};
+      helper.userData.helper = true;
+      r.add(helper);
+    }
 
     for (const wp of part.ports) {
-      if (wp.connected || !wp.port.open) continue;
+      if (!markers || wp.connected || !wp.port.open) continue;
       openPorts.push(wp);
       const active = !!target && target.partId === wp.partId && target.portId === wp.port.id;
       const marker = portMarker(wp, active);

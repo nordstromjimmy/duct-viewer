@@ -1,5 +1,6 @@
 import './style.css';
 import { AssemblyController } from './assembly/controller';
+import { RoomController } from './room/controller';
 import { describe, parseCode, summary } from './codes';
 import type { Product } from './codes/types';
 import { buildModel } from './geometry';
@@ -26,6 +27,7 @@ const dimsBtn = $<HTMLButtonElement>('#toggle-dims');
 const insBtn = $<HTMLButtonElement>('#toggle-ins');
 const sectionBtn = $<HTMLButtonElement>('#toggle-section');
 const labelsBtn = $<HTMLButtonElement>('#toggle-labels');
+const roomBtn = $<HTMLButtonElement>('#toggle-room');
 const rotationReset = $<HTMLButtonElement>('#rotation-reset');
 const rotateBtns = document.querySelectorAll<HTMLButtonElement>('#rotate [data-rotate]');
 const stageHint = $<HTMLParagraphElement>('#stage-hint');
@@ -34,15 +36,16 @@ const materials = createMaterials();
 const viewer = new Viewer(viewport, materials);
 const store = new Store();
 
-type Mode = 'part' | 'assembly';
+type Mode = 'part' | 'assembly' | 'room';
 let mode: Mode = 'part';
 let current: Product | null = null;
 let currentView: ViewName = 'iso';
 
 /** Toggle state per mode – dimensions are off by default in the assembly (too busy). */
 const toggles = {
-  part: { dims: true, insulation: true, section: false, labels: true },
-  assembly: { dims: false, insulation: true, section: false, labels: true },
+  part: { dims: true, insulation: true, section: false, labels: true, room: true },
+  assembly: { dims: false, insulation: true, section: false, labels: true, room: true },
+  room: { dims: false, insulation: true, section: false, labels: true, room: true },
 };
 type ToggleKey = keyof typeof toggles.part;
 
@@ -61,7 +64,14 @@ const asm = new AssemblyController(store, viewer, materials, {
   onRender: () => {
     applyToggles();
     showRotation();
+    if (mode === 'room') room.render();
   },
+});
+
+// Room tab: walls, floor and roof around the assembly
+const room = new RoomController(store, viewer, asm, {
+  panel: $('#room-panel'),
+  redraw: (fit) => asm.render(fit),
 });
 
 // ---------- Part mode ----------
@@ -307,15 +317,20 @@ $<HTMLElement>('#asm-selected').addEventListener('click', (e) => {
 function undo() {
   if (!store.canUndo) return;
   store.undo();
-  if (mode === 'assembly') asm.render();
+  if (mode !== 'part') asm.render();
 }
 
 // ---------- Modes ----------
 
 function setMode(next: Mode) {
+  if (mode === 'room' && next !== 'room') room.stop();
   mode = next;
+  asm.roomMode = next === 'room';
+  viewer.onPointerMove = next === 'room' ? (r) => room.onMove(r) : null;
+  viewer.onClickRay = next === 'room' ? (r) => room.onClick(r) : null;
+  viewer.onDoubleClick = next === 'room' ? () => room.onDoubleClick() : null;
   panel.dataset.mode = next;
-  viewport.classList.toggle('assembly', next === 'assembly');
+  viewport.classList.toggle('assembly', next !== 'part');
   document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => {
     const on = b.dataset.mode === next;
     b.classList.toggle('is-active', on);
@@ -329,6 +344,11 @@ function setMode(next: Mode) {
     stageHint.textContent = 'Click a part to select it · Click an orange end to choose where the next part goes';
     rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Turn the selected part 90° around its joint' : 'Turn the selected part 90° the other way'));
     asm.render(true);
+  } else if (next === 'room') {
+    viewer.onPick = null;
+    stageHint.textContent = 'Draw walls by clicking corners on the floor · Drag to rotate · Scroll to zoom';
+    asm.render(true);
+    room.render();
   } else {
     viewer.onPick = null;
     stageHint.textContent = 'Drag to rotate · Right-drag to pan · Scroll to zoom';
@@ -352,11 +372,14 @@ function applyToggles() {
   viewer.setDimensionsVisible(t.dims && t.labels); // dimension lines without their numbers look odd
   viewer.setInsulationVisible(t.insulation);
   viewer.setLabelsVisible(t.labels);
+  // The Room button only exists in the assembly – in the Room tab the walls are always shown
+  viewer.setRoomVisible(mode !== 'assembly' || t.room);
+  roomBtn.hidden = mode !== 'assembly' || !store.project.room;
 }
 
 function syncToggleButtons() {
   const t = toggles[mode];
-  for (const [btn, key] of [[dimsBtn, 'dims'], [insBtn, 'insulation'], [sectionBtn, 'section'], [labelsBtn, 'labels']] as const) {
+  for (const [btn, key] of [[dimsBtn, 'dims'], [insBtn, 'insulation'], [sectionBtn, 'section'], [labelsBtn, 'labels'], [roomBtn, 'room']] as const) {
     btn.classList.toggle('is-active', t[key]);
     btn.setAttribute('aria-pressed', String(t[key]));
   }
@@ -377,6 +400,7 @@ bindToggle(dimsBtn, 'dims', () => applyToggles());
 bindToggle(insBtn, 'insulation', (on) => viewer.setInsulationVisible(on));
 bindToggle(sectionBtn, 'section', (on) => viewer.setSection(on));
 bindToggle(labelsBtn, 'labels', () => applyToggles());
+bindToggle(roomBtn, 'room', () => applyToggles());
 
 document.querySelectorAll<HTMLButtonElement>('#views button').forEach((btn) =>
   btn.addEventListener('click', () => {
@@ -388,9 +412,9 @@ document.querySelectorAll<HTMLButtonElement>('#views button').forEach((btn) =>
 
 // Rotate: rolls the duct in Part mode, turns the selected part around its joint in Assembly mode
 function showRotation() {
-  const deg = mode === 'part' ? viewer.rotationDegrees : asm.selectedRollDegrees;
+  const deg = mode === 'part' ? viewer.rotationDegrees : mode === 'assembly' ? asm.selectedRollDegrees : null;
   rotationReset.textContent = deg === null ? '–' : `${deg}°`;
-  rotationReset.disabled = mode === 'part' ? !deg : !asm.selectedIsTurned;
+  rotationReset.disabled = mode === 'part' ? !deg : mode === 'room' || !asm.selectedIsTurned;
   rotateBtns.forEach((b) => (b.disabled = deg === null));
 }
 rotateBtns.forEach((btn) =>
@@ -410,7 +434,7 @@ rotationReset.addEventListener('click', () => {
 $<HTMLButtonElement>('#snapshot').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = viewer.snapshot();
-  a.download = mode === 'assembly' ? 'assembly.png' : `${current?.code.replace(/[^\w-]+/g, '_') ?? 'duct'}.png`;
+  a.download = mode !== 'part' ? `${mode}.png` : `${current?.code.replace(/[^\w-]+/g, '_') ?? 'duct'}.png`;
   a.click();
 });
 
@@ -419,6 +443,11 @@ $<HTMLButtonElement>('#snapshot').addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   const typing = (e.target as HTMLElement).closest('input, textarea');
   if (typing) return;
+  // Drawing walls: numbers, Enter, Backspace and Esc go to the drawing tool
+  if (mode === 'room' && room.onKey(e)) {
+    e.preventDefault();
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
     e.preventDefault();
     undo();
