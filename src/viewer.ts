@@ -53,6 +53,11 @@ export class Viewer {
   onPointerMove: ((ray: THREE.Ray) => void) | null = null;
   onClickRay: ((ray: THREE.Ray) => void) | null = null;
   onDoubleClick: ((ray: THREE.Ray) => void) | null = null;
+  /** Dragging something in the scene instead of orbiting: return true from onDragStart to take the drag. */
+  onDragStart: ((ray: THREE.Ray, hit: THREE.Object3D | null) => boolean) | null = null;
+  onDragMove: ((ray: THREE.Ray) => void) | null = null;
+  onDragEnd: (() => void) | null = null;
+  private dragging = false;
   /** Temporary drawings in world coordinates (e.g. the wall being drawn). Not part of the model. */
   readonly overlay = new THREE.Group();
   private container: HTMLElement;
@@ -109,13 +114,37 @@ export class Viewer {
     // Click (not drag) on the model → report what was hit
     const down = new THREE.Vector2();
     this.renderer.domElement.addEventListener('pointerdown', (e) => down.set(e.clientX, e.clientY));
+    // Capture phase, so we can switch the orbit controls off before they start a rotation
+    this.renderer.domElement.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.button !== 0 || !this.onDragStart) return;
+        if (this.onDragStart(this.rayAt(e.clientX, e.clientY), this.pick(e.clientX, e.clientY))) {
+          this.dragging = true;
+          this.controls.enabled = false;
+          this.renderer.domElement.setPointerCapture(e.pointerId);
+        }
+      },
+      { capture: true },
+    );
+    const endDrag = () => {
+      if (!this.dragging) return;
+      this.dragging = false;
+      this.controls.enabled = true;
+      this.onDragEnd?.();
+    };
+    this.renderer.domElement.addEventListener('pointerup', endDrag);
+    this.renderer.domElement.addEventListener('pointercancel', endDrag);
     this.renderer.domElement.addEventListener('pointerup', (e) => {
       if (e.button !== 0) return;
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return; // that was a drag
       this.onClickRay?.(this.rayAt(e.clientX, e.clientY));
       this.onPick?.(this.pick(e.clientX, e.clientY));
     });
-    this.renderer.domElement.addEventListener('pointermove', (e) => this.onPointerMove?.(this.rayAt(e.clientX, e.clientY)));
+    this.renderer.domElement.addEventListener('pointermove', (e) => {
+      if (this.dragging) this.onDragMove?.(this.rayAt(e.clientX, e.clientY));
+      else this.onPointerMove?.(this.rayAt(e.clientX, e.clientY));
+    });
     this.renderer.domElement.addEventListener('dblclick', (e) => this.onDoubleClick?.(this.rayAt(e.clientX, e.clientY)));
     this.scene.add(this.overlay);
 
@@ -268,6 +297,11 @@ export class Viewer {
   /** Re-fit the whole model in view, keeping the current viewing angle. */
   fit() {
     if (this.model) this.reframe();
+  }
+
+  /** The shown model's root (the whole assembly scene, room included). */
+  get modelRoot(): THREE.Object3D | null {
+    return this.model?.root ?? null;
   }
 
   /** The camera ray through a screen point. */

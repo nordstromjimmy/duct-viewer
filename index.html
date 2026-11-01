@@ -131,6 +131,36 @@
             <h2>Vägglängder</h2>
             <table class="room-table"><tbody></tbody></table>
           </section>
+          <section class="room-place" hidden>
+            <h2>Sammanställningens placering</h2>
+            <div class="asm-actions">
+              <button type="button" data-room="move" title="Dra sammanställningen på plats i 3D-vyn">✥ Flytta (dra i 3D)</button>
+              <button type="button" data-room="spin" title="Vrid sammanställningen 90° runt den lodräta axeln">⟳ Vrid 90°</button>
+            </div>
+            <p class="room-note">Minsta avstånd från väggarnas insida till sammanställningen. Skriv ett mått för att flytta den exakt.</p>
+            <table class="room-table"><tbody></tbody></table>
+          </section>
+          <section class="room-openings" hidden>
+            <div class="asm-order__head">
+              <h2>Håltagning</h2>
+              <div class="asm-order__actions">
+                <button type="button" data-room="opening-copy" title="Kopiera håltagningslistan">Kopiera</button>
+                <button type="button" data-room="opening-download" title="Ladda ner håltagningslistan som textfil">Ladda ner .txt</button>
+              </div>
+            </div>
+            <div class="asm-actions">
+              <button type="button" data-room="add-opening">+ Håltagning</button>
+            </div>
+            <div class="item-list opening-list"></div>
+          </section>
+          <section class="room-runs" hidden>
+            <h2>Rör och kabelstegar</h2>
+            <div class="asm-actions">
+              <button type="button" data-room="add-pipe">+ Rör</button>
+              <button type="button" data-room="add-ladder">+ Kabelstege</button>
+            </div>
+            <div class="item-list run-list"></div>
+          </section>
           <section>
             <h2>Krockar</h2>
             <ul class="room-collisions warnings"></ul>

@@ -329,6 +329,9 @@ function setMode(next: Mode) {
   viewer.onPointerMove = next === 'room' ? (r) => room.onMove(r) : null;
   viewer.onClickRay = next === 'room' ? (r) => room.onClick(r) : null;
   viewer.onDoubleClick = next === 'room' ? () => room.onDoubleClick() : null;
+  viewer.onDragStart = next === 'room' ? (r, hit) => room.dragStart(r, hit) : null;
+  viewer.onDragMove = next === 'room' ? (r) => room.dragMove(r) : null;
+  viewer.onDragEnd = next === 'room' ? () => room.dragEnd() : null;
   panel.dataset.mode = next;
   viewport.classList.toggle('assembly', next !== 'part');
   document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => {

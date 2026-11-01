@@ -43,6 +43,8 @@ export interface Project {
   details?: Record<string, number>;
   /** Walls, floor and roof drawn around the assembly. */
   room?: Room;
+  /** Where the whole assembly is moved to in the room, [x, y, z] mm. */
+  place?: [number, number, number];
 }
 
 const KEY = 'duct-viewer:project';
@@ -181,6 +183,7 @@ export class Store {
       p.assembly = data.assembly;
       p.details = data.details;
       p.room = data.room;
+      p.place = data.place;
     });
     return null;
   }

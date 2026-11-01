@@ -697,3 +697,51 @@ button.danger { color: var(--error); }
 .wall-len .dim-field { margin-right: 5px; font-weight: 500; opacity: 0.6; }
 .wall-len--live { color: #fff; background: var(--accent); border-color: var(--accent); }
 body.room-drawing .viewport canvas { cursor: crosshair; }
+
+/* ---------- Room: placement, openings, pipes and ladders ---------- */
+.room-note { margin: 8px 0 4px; font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+.mode-room .asm-actions button.is-on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.mode-room .asm-order__head { margin-bottom: 8px; }
+.mode-room .asm-order__head h2 { margin: 0; }
+.item-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.item-empty { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+.item {
+  padding: 8px 10px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.item__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.item__head strong { font-size: 12.5px; font-weight: 600; }
+.item__head .icon {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.item__head .icon:hover { color: #c92a2a; border-color: var(--line); }
+.item__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.item__grid label { display: grid; gap: 2px; min-width: 0; font-size: 11px; color: var(--ink-2); }
+.item__grid label > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item__input { display: flex; align-items: center; gap: 4px; color: var(--ink-3); }
+.item__grid input,
+.item__grid select {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.item__grid select { font-family: inherit; }
+.wall-len.opening-label { color: #fff; background: #5c5647; border-color: #5c5647; }
+.wall-len.run-label { font-weight: 500; }
+body.room-moving .viewport canvas { cursor: grab; }

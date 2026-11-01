@@ -10,7 +10,7 @@ import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, portsOf, ty
 import { buildOrder, lineText, orderText as orderTextOf, type Order } from './order';
 import { buildAssemblyScene, type PortRef } from './scene';
 import { findCollisions, type Collision } from '../room/collide';
-import { buildRoomGroup } from '../room/model';
+import { buildRoomGroup, runName } from '../room/model';
 
 export interface AssemblyUi {
   hint: HTMLElement;
@@ -32,6 +32,15 @@ export class AssemblyController {
   selectedPart: string | null = null;
   target: PortRef | null = null;
   private lay: Layout | null = null;
+  /** The current layout (parts placed in the world), for the Room tab. */
+  get layout(): Layout | null {
+    return this.lay;
+  }
+
+  /** Number of parts in the assembly. */
+  get partCount(): number {
+    return this.parts.length;
+  }
   /** The order list for the current assembly. */
   order: Order | null = null;
   /** Parts hitting the room's walls or roof. */
@@ -63,7 +72,7 @@ export class AssemblyController {
   /** Rebuild the 3D scene and the side panel. `fit` re-frames the camera on the whole assembly. */
   render(fit = false) {
     // (The previous scene's models are disposed by the viewer when it gets the new one.)
-    const lay = layout(this.parts, this.mat);
+    const lay = layout(this.parts, this.mat, this.store.project.place);
     this.lay = lay;
 
     // Drop a selection that no longer exists (after undo / remove)
@@ -87,6 +96,11 @@ export class AssemblyController {
       new Set(this.collisions.map((c) => c.partId)),
       !this.roomMode,
     );
+    // The assembly's own content in one group, so the Room tab can slide it around while dragging
+    const content = new THREE.Group();
+    content.name = 'asm-content';
+    if (scene.model.root.children.length) content.add(...scene.model.root.children);
+    scene.model.root.add(content);
     // The room is drawn in the same space, at the same scale (mm)
     if (room && room.points.length >= 2) {
       const g = buildRoomGroup(room);
@@ -202,7 +216,12 @@ export class AssemblyController {
       const a = this.find(c.partId);
       const d = this.order?.detailOf.get(c.partId);
       const who = `${d !== undefined ? `Detalj ${d} · ` : ''}${a?.code ?? '?'}`;
-      return c.target === 'roof' ? `${who} går upp i taket.` : `${who} går igenom vägg ${c.wall! + 1}.`;
+      if (c.target === 'roof') return `${who} går upp i taket.`;
+      if (c.target === 'run') {
+        const run = this.store.project.room?.runs?.find((r) => r.id === c.run);
+        return `${who} krockar med ${run ? runName(this.store.project.room!, run).replace(/^./, (ch) => ch.toLowerCase()) : 'ett rör'}.`;
+      }
+      return `${who} går igenom vägg ${c.wall! + 1}.`;
     });
   }
 

@@ -93,7 +93,8 @@ function rootMatrix(own: Port, roll: number): THREE.Matrix4 {
     .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
 }
 
-export function layout(assembly: AsmPart[], mat: Materials): Layout {
+/** `place` moves the whole assembly (from the Room tab), [x, y, z] mm. */
+export function layout(assembly: AsmPart[], mat: Materials, place?: [number, number, number]): Layout {
   const out: Layout = { parts: [], joints: [], problems: [] };
   const byId = new Map<string, LaidPart>();
 
@@ -127,6 +128,7 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
           .multiply(new THREE.Matrix4().makeTranslation(-c.x, -c.y, -c.z))
           .multiply(matrix);
       }
+      if (place) matrix = new THREE.Matrix4().makeTranslation(...place).multiply(matrix);
     } else {
       const parent = byId.get(asm.parent);
       const target = parent?.ports.find((p) => p.port.id === asm.parentPort);
