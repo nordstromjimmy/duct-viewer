@@ -146,7 +146,7 @@ function renderSpec(p: Product) {
 function updateSaveButton() {
   const saved = !!current && store.project.parts.some((p) => p.code === current!.code);
   saveBtn.disabled = !current || saved;
-  saveBtn.textContent = saved ? '✓ In My parts' : '+ Save to My parts';
+  saveBtn.textContent = saved ? '✓ Finns i Mina delar' : '+ Spara i Mina delar';
 }
 
 // ---------- My parts ----------
@@ -187,9 +187,9 @@ function renderParts() {
         b.title = title;
         actions.append(b);
       };
-      btn('add', 'Add', 'Add to the assembly', 'add');
-      btn('rename', '✎', 'Rename', 'icon');
-      btn('delete', '×', 'Remove from My parts', 'icon');
+      btn('add', 'Lägg till', 'Lägg till i sammanställningen', 'add');
+      btn('rename', '✎', 'Byt namn', 'icon');
+      btn('delete', '×', 'Ta bort från Mina delar', 'icon');
 
       li.append(tok, text, actions);
       return li;
@@ -261,7 +261,7 @@ $<HTMLButtonElement>('#export-project').addEventListener('click', () => {
   const blob = new Blob([store.exportJson()], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'duct-project.json';
+  a.download = 'kanalprojekt.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
@@ -289,9 +289,9 @@ $<HTMLElement>('#asm-order').addEventListener('click', async (e) => {
   if (act === 'copy') {
     try {
       await navigator.clipboard.writeText(text);
-      status.textContent = 'Copied – paste it into the order form.';
+      status.textContent = 'Kopierat – klistra in i beställningsformuläret.';
     } catch {
-      status.textContent = 'Couldn\'t copy here – use Download .txt instead.';
+      status.textContent = 'Kunde inte kopiera här – använd Ladda ner .txt i stället.';
     }
     setTimeout(() => (status.textContent = ''), 3000);
   } else {
@@ -341,18 +341,18 @@ function setMode(next: Mode) {
 
   if (next === 'assembly') {
     viewer.onPick = (hit) => asm.pick(hit);
-    stageHint.textContent = 'Click a part to select it · Click an orange end to choose where the next part goes';
-    rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Turn the selected part 90° around its joint' : 'Turn the selected part 90° the other way'));
+    stageHint.textContent = 'Klicka på en del för att markera den · Klicka på en orange ände för att välja var nästa del hamnar';
+    rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Vrid den valda delen 90° runt skarven' : 'Vrid den valda delen 90° åt andra hållet'));
     asm.render(true);
   } else if (next === 'room') {
     viewer.onPick = null;
-    stageHint.textContent = 'Draw walls by clicking corners on the floor · Drag to rotate · Scroll to zoom';
+    stageHint.textContent = 'Rita väggar genom att klicka ut hörn på golvet · Dra för att rotera · Scrolla för att zooma';
     asm.render(true);
     room.render();
   } else {
     viewer.onPick = null;
-    stageHint.textContent = 'Drag to rotate · Right-drag to pan · Scroll to zoom';
-    rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Roll the duct 90° counter-clockwise' : 'Roll the duct 90° clockwise'));
+    stageHint.textContent = 'Dra för att rotera · Högerdra för att panorera · Scrolla för att zooma';
+    rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Rulla kanalen 90° moturs' : 'Rulla kanalen 90° medurs'));
     current = null; // redraw from scratch
     show(input.value, { updateHash: true });
   }
@@ -434,7 +434,7 @@ rotationReset.addEventListener('click', () => {
 $<HTMLButtonElement>('#snapshot').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = viewer.snapshot();
-  a.download = mode !== 'part' ? `${mode}.png` : `${current?.code.replace(/[^\w-]+/g, '_') ?? 'duct'}.png`;
+  a.download = mode !== 'part' ? `${mode === 'room' ? 'rum' : 'sammanstallning'}.png` : `${current?.code.replace(/[^\w-]+/g, '_') ?? 'kanal'}.png`;
   a.click();
 });
 

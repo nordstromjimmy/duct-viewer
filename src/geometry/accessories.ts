@@ -39,8 +39,8 @@ function ports(p: Silencer | Damper): Port[] {
   const a = new THREE.Vector3(0, 0, -z);
   const b = new THREE.Vector3(0, 0, z);
   return [
-    rectPort('end1', 'End 1', a, new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
-    rectPort('end2', 'End 2', b, new THREE.Vector3(0, 0, 1), p.width, p.height, p.ends[1]),
+    rectPort('end1', 'Ände 1', a, new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
+    rectPort('end2', 'Ände 2', b, new THREE.Vector3(0, 0, 1), p.width, p.height, p.ends[1]),
   ];
 }
 

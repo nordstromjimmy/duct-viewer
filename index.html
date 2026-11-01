@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="sv">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -19,27 +19,27 @@
           <span class="brand__mark"></span>
           <div>
             <h1>Duct Viewer</h1>
-            <p>Crenna rectangular duct codes</p>
+            <p>Crennas koder för rektangulära kanaler</p>
           </div>
         </header>
 
-        <div class="tabs" role="tablist" aria-label="Mode">
-          <button type="button" role="tab" data-mode="part" class="is-active" aria-selected="true">Part</button>
+        <div class="tabs" role="tablist" aria-label="Läge">
+          <button type="button" role="tab" data-mode="part" class="is-active" aria-selected="true">Del</button>
           <button type="button" role="tab" data-mode="assembly" aria-selected="false">
-            Assembly <span id="asm-count" class="count"></span>
+            Sammanställning <span id="asm-count" class="count"></span>
           </button>
-          <button type="button" role="tab" data-mode="room" aria-selected="false">Room</button>
+          <button type="button" role="tab" data-mode="room" aria-selected="false">Rum</button>
         </div>
 
         <div class="mode-part">
         <form id="code-form" class="code-form" autocomplete="off">
-          <label for="code-input">Product code</label>
+          <label for="code-input">Produktkod</label>
           <div class="code-form__row">
             <input id="code-input" spellcheck="false" placeholder="KK-1-1500-1000-0" />
-            <button type="submit">Show</button>
+            <button type="submit">Visa</button>
           </div>
           <p id="code-error" class="code-error" role="alert"></p>
-          <button type="button" id="save-part" class="save-btn">+ Save to My parts</button>
+          <button type="button" id="save-part" class="save-btn">+ Spara i Mina delar</button>
         </form>
 
         <details id="unit-builder" class="unit-builder"></details>
@@ -61,7 +61,7 @@
         </div> -->
 
         <section class="spec">
-          <h2>Decoded</h2>
+          <h2>Tolkning</h2>
           <dl id="spec-list"></dl>
           <ul id="warnings" class="warnings"></ul>
         </section>
@@ -72,33 +72,33 @@
             <p id="asm-hint" class="asm-hint"></p>
             <ul id="asm-warnings" class="warnings"></ul>
             <div class="asm-actions">
-              <button type="button" id="asm-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
-              <button type="button" id="asm-fit">Fit view</button>
-              <button type="button" id="asm-clear" class="danger">Clear assembly</button>
+              <button type="button" id="asm-undo" title="Ångra (Ctrl+Z)">↶ Ångra</button>
+              <button type="button" id="asm-fit">Anpassa vy</button>
+              <button type="button" id="asm-clear" class="danger">Töm sammanställning</button>
             </div>
           </section>
           <section class="asm-orient">
-            <h2>Whole assembly</h2>
+            <h2>Hela sammanställningen</h2>
             <div id="asm-orient" class="asm-actions">
-              <button type="button" data-act="tip-over" title="Tip 90°: a lying duct stands up on its end, a standing one lies down">⤒ Stand up / tip</button>
-              <button type="button" data-act="tip-back" title="Tip 90° the other way">⤓ Tip other way</button>
-              <button type="button" data-act="spin" title="Turn 90° around the vertical axis">⟳ Turn on floor</button>
+              <button type="button" data-act="tip-over" title="Tippa 90°: en liggande kanal ställs upp på änden, en stående läggs ner">⤒ Ställ upp / tippa</button>
+              <button type="button" data-act="tip-back" title="Tippa 90° åt andra hållet">⤓ Tippa andra hållet</button>
+              <button type="button" data-act="spin" title="Vrid 90° runt den lodräta axeln">⟳ Vrid på golvet</button>
             </div>
           </section>
           <section id="asm-selected" class="asm-selected" hidden></section>
           <section id="asm-order" class="asm-order">
             <div class="asm-order__head">
-              <h2>Order list</h2>
+              <h2>Beställningslista</h2>
               <div class="asm-order__actions">
-                <button type="button" data-order="copy" title="Copy the order lines, ready to paste">Copy</button>
-                <button type="button" data-order="download" title="Download as a text file">Download .txt</button>
+                <button type="button" data-order="copy" title="Kopiera beställningsraderna, klara att klistra in">Kopiera</button>
+                <button type="button" data-order="download" title="Ladda ner som textfil">Ladda ner .txt</button>
               </div>
             </div>
             <table class="order-table">
-              <thead><tr><th>Detail</th><th>Qty</th><th>Order code</th><th>Ends</th></tr></thead>
+              <thead><tr><th>Detalj</th><th>Antal</th><th>Beställningskod</th><th>Ändar</th></tr></thead>
               <tbody></tbody>
             </table>
-            <p class="order-empty">Add parts to the assembly to build the order list.</p>
+            <p class="order-empty">Lägg till delar i sammanställningen för att bygga beställningslistan.</p>
             <p class="order-note"></p>
             <p class="order-copied" role="status"></p>
           </section>
@@ -108,80 +108,80 @@
           <section>
             <p class="room-hint asm-hint"></p>
             <div class="asm-actions">
-              <button type="button" data-room="draw">✎ Draw walls</button>
-              <button type="button" data-room="stop" hidden>Stop drawing</button>
-              <button type="button" data-room="clear" class="danger">Remove room</button>
+              <button type="button" data-room="draw">✎ Rita väggar</button>
+              <button type="button" data-room="stop" hidden>Sluta rita</button>
+              <button type="button" data-room="clear" class="danger">Ta bort rum</button>
             </div>
           </section>
           <section class="room-settings" hidden>
-            <h2>Room</h2>
+            <h2>Rum</h2>
             <div class="room-grid">
-              <label>Height (inside)<span><input type="number" name="height" min="500" step="50" /> mm</span></label>
-              <label>Wall thickness<span><input type="number" name="thickness" min="20" step="10" /> mm</span></label>
-              <label>Floor level<span><input type="number" name="floorY" step="10" /> mm</span></label>
-              <button type="button" data-room="floor-auto" title="Put the floor at the lowest point of the assembly">Floor at lowest part</button>
+              <label>Höjd (invändig)<span><input type="number" name="height" min="500" step="50" /> mm</span></label>
+              <label>Väggtjocklek<span><input type="number" name="thickness" min="20" step="10" /> mm</span></label>
+              <label>Golvnivå<span><input type="number" name="floorY" step="10" /> mm</span></label>
+              <button type="button" data-room="floor-auto" title="Lägg golvet vid sammanställningens lägsta punkt">Golv vid lägsta del</button>
             </div>
             <div class="room-checks">
-              <label><input type="checkbox" name="floor" /> Floor</label>
-              <label><input type="checkbox" name="roof" /> Roof</label>
-              <label><input type="checkbox" name="seeThrough" /> See-through walls</label>
+              <label><input type="checkbox" name="floor" /> Golv</label>
+              <label><input type="checkbox" name="roof" /> Tak</label>
+              <label><input type="checkbox" name="seeThrough" /> Genomskinliga väggar</label>
             </div>
           </section>
           <section class="room-walls" hidden>
-            <h2>Wall lengths</h2>
+            <h2>Vägglängder</h2>
             <table class="room-table"><tbody></tbody></table>
           </section>
           <section>
-            <h2>Collisions</h2>
+            <h2>Krockar</h2>
             <ul class="room-collisions warnings"></ul>
           </section>
         </div>
 
         <section class="my-parts">
           <div class="my-parts__head">
-            <h2>My parts</h2>
+            <h2>Mina delar</h2>
             <div class="my-parts__file">
-              <button type="button" id="export-project" title="Download My parts and the assembly as a file">Export</button>
-              <button type="button" id="import-project" title="Load a project file">Import</button>
+              <button type="button" id="export-project" title="Ladda ner Mina delar, sammanställningen och rummet som en fil">Exportera</button>
+              <button type="button" id="import-project" title="Läs in en projektfil">Importera</button>
               <input type="file" id="import-file" accept=".json,application/json" hidden />
             </div>
           </div>
-          <p id="parts-empty" class="my-parts__empty">Nothing saved yet. Show a code and press “Save to My parts”.</p>
+          <p id="parts-empty" class="my-parts__empty">Inget sparat än. Visa en kod och tryck ”Spara i Mina delar”.</p>
           <ul id="parts-list" class="parts-list"></ul>
           <p id="parts-message" class="code-error" role="alert"></p>
         </section>
 
         <footer class="panel__foot">
-          Based on Crenna datasheets KK (v4.0), KD (v3.0), KB (v3.0), KS (v3.0), KÖ (v3.0) and KT (v3.0). Ventilation unit, silencers and dampers are generic. Visual model – not a manufacturing drawing.
+          Baserad på Crennas produktblad KK (v4.0), KD (v3.0), KB (v3.0), KS (v3.0), KÖ (v3.0) och KT (v3.0). Aggregat, ljuddämpare och spjäll är generiska. Visuell modell – inte en tillverkningsritning.
         </footer>
       </aside>
 
       <main class="stage">
         <div id="viewport" class="viewport"></div>
 
-        <div class="toolbar" role="toolbar" aria-label="View">
+        <div class="toolbar" role="toolbar" aria-label="Vy">
           <div class="seg" id="views">
             <button type="button" data-view="iso" class="is-active">3D</button>
-            <button type="button" data-view="end">End</button>
-            <button type="button" data-view="side">Side</button>
-            <button type="button" data-view="top">Top</button>
+            <button type="button" data-view="end">Ände</button>
+            <button type="button" data-view="side">Sida</button>
+            <button type="button" data-view="top">Ovan</button>
           </div>
           <div class="seg" id="rotate">
-            <button type="button" data-rotate="left" title="Roll the duct 90° counter-clockwise">↺ Rotate left</button>
-            <button type="button" id="rotation-reset" class="angle" title="Reset rotation" disabled>0°</button>
-            <button type="button" data-rotate="right" title="Roll the duct 90° clockwise">Rotate right ↻</button>
+            <button type="button" data-rotate="left" title="Rulla kanalen 90° moturs">↺ Rotera vänster</button>
+            <button type="button" id="rotation-reset" class="angle" title="Återställ rotation" disabled>0°</button>
+            <button type="button" data-rotate="right" title="Rulla kanalen 90° medurs">Rotera höger ↻</button>
           </div>
           <div class="seg">
-            <button type="button" id="toggle-dims" class="is-active" aria-pressed="true">Dimensions</button>
-            <button type="button" id="toggle-ins" class="is-active" aria-pressed="true">Insulation</button>
-            <button type="button" id="toggle-section" aria-pressed="false">Section</button>
-            <button type="button" id="toggle-labels" class="is-active" aria-pressed="true" title="Show/hide all text in the scene">Labels</button>
-            <button type="button" id="toggle-room" class="is-active" aria-pressed="true" title="Show/hide the walls, floor and roof" hidden>Room</button>
+            <button type="button" id="toggle-dims" class="is-active" aria-pressed="true">Mått</button>
+            <button type="button" id="toggle-ins" class="is-active" aria-pressed="true">Isolering</button>
+            <button type="button" id="toggle-section" aria-pressed="false">Snitt</button>
+            <button type="button" id="toggle-labels" class="is-active" aria-pressed="true" title="Visa/dölj all text i scenen">Etiketter</button>
+            <button type="button" id="toggle-room" class="is-active" aria-pressed="true" title="Visa/dölj väggar, golv och tak" hidden>Rum</button>
           </div>
-          <button type="button" id="snapshot" class="ghost">Save PNG</button>
+          <button type="button" id="snapshot" class="ghost">Spara PNG</button>
         </div>
 
-        <p class="hint" id="stage-hint">Drag to rotate · Right-drag to pan · Scroll to zoom</p>
+        <p class="hint" id="stage-hint">Dra för att rotera · Högerdra för att panorera · Scrolla för att zooma</p>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>

@@ -27,11 +27,11 @@ const PARSERS: Record<string, (input: string) => ParseResult> = {
 
 export function parseCode(input: string): ParseResult {
   const s = normalise(input);
-  if (!s) return { ok: false, error: 'Enter a code, e.g. KK-1-1500-1000-0' };
+  if (!s) return { ok: false, error: 'Skriv en kod, t.ex. KK-1-1500-1000-0' };
   const prefix = s.match(/^[A-ZÅÄÖ]+/)?.[0] ?? '';
   const parser = PARSERS[prefix];
   if (!parser) {
-    return { ok: false, error: `Unknown product "${prefix || s}". Supported so far: ${Object.keys(PARSERS).filter((k) => k !== 'KO').join(', ')}.` };
+    return { ok: false, error: `Okänd produkt "${prefix || s}". Hittills stöds: ${Object.keys(PARSERS).filter((k) => k !== 'KO').join(', ')}.` };
   }
   return parser(s);
 }
@@ -39,15 +39,15 @@ export function parseCode(input: string): ParseResult {
 /** Short one-line description, used as the default name in My parts. */
 export function summary(p: Product): string {
   switch (p.kind) {
-    case 'KK': return `Straight ${p.width}×${p.height} · ${p.length}`;
-    case 'KD': return `Transition ${p.width}×${p.height} → ${p.smallWidth}×${p.smallHeight}`;
-    case 'KB': return `Bend ${p.angle}° · ${p.width}×${p.height}`;
-    case 'KS': return `S-bend ${p.width}×${p.height} · offset ${p.offset}`;
-    case 'KÖ': return `To round ${p.width}×${p.height} → Ø${p.diameter}`;
-    case 'KT': return `T-piece ${p.width}×${p.height} · branch ${p.branchWidth}`;
-    case 'AGG': return `Ventilation unit ${p.length}×${p.depth}×${p.height}`;
-    case 'LD': return `Silencer ${p.width}×${p.height} · ${p.length}`;
-    case 'SP': return `${['', 'Damper', 'Motor damper', 'Fire damper'][p.type]} ${p.width}×${p.height}`;
+    case 'KK': return `Rak kanal ${p.width}×${p.height} · ${p.length}`;
+    case 'KD': return `Dim.förändring ${p.width}×${p.height} → ${p.smallWidth}×${p.smallHeight}`;
+    case 'KB': return `Böj ${p.angle}° · ${p.width}×${p.height}`;
+    case 'KS': return `S-böj ${p.width}×${p.height} · fall ${p.offset}`;
+    case 'KÖ': return `Övergång ${p.width}×${p.height} → Ø${p.diameter}`;
+    case 'KT': return `T-stycke ${p.width}×${p.height} · avstick ${p.branchWidth}`;
+    case 'AGG': return `Aggregat ${p.length}×${p.depth}×${p.height}`;
+    case 'LD': return `Ljuddämpare ${p.width}×${p.height} · ${p.length}`;
+    case 'SP': return `${['', 'Injusteringsspjäll', 'Motorspjäll', 'Brandspjäll'][p.type]} ${p.width}×${p.height}`;
   }
 }
 

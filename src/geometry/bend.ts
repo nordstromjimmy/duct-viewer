@@ -246,8 +246,8 @@ export function buildBend(p: Bend, mat: Materials): DuctModel {
   const h1 = p.height / 2 + SHEET;
   const h2 = p.endHeight / 2 + SHEET;
   // End tags on the heel side, where the two ends are furthest apart
-  label('End 1', new THREE.Vector3(b / 2 + overhang + 40, h1 + overhang + 40, 0));
-  label('End 2', toWorld(heEnd, h2 + overhang + 40));
+  label('Ände 1', new THREE.Vector3(b / 2 + overhang + 40, h1 + overhang + 40, 0));
+  label('Ände 2', toWorld(heEnd, h2 + overhang + 40));
   label(`${p.angle}°`, toWorld(base.th[Math.floor(stationCount / 2)], h1 + 30), 'scene-label scene-label--accent');
 
   const dims = new THREE.Group();
@@ -287,8 +287,8 @@ export function buildBend(p: Bend, mat: Materials): DuctModel {
     section: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
     iso: bendIsoDirection(p.angle),
     ports: [
-      rectPort('end1', 'End 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
-      rectPort('end2', 'End 2', toWorld(c2, 0), outDir, p.endWidth, p.endHeight, p.ends[1]),
+      rectPort('end1', 'Ände 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
+      rectPort('end2', 'Ände 2', toWorld(c2, 0), outDir, p.endWidth, p.endHeight, p.ends[1]),
     ],
   };
 }

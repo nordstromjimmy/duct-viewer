@@ -112,15 +112,15 @@ export function buildDuct(d: StraightDuct, mat: Materials): DuctModel {
   const outsideIns = d.insulation.side === 'outside' ? d.insulation.thickness : 0;
   const overhang = Math.max(endOverhang(d.ends[0]), endOverhang(d.ends[1]), outsideIns);
 
-  root.add(endTag('End 1', -d.length / 2, d, overhang));
-  root.add(endTag('End 2', d.length / 2, d, overhang));
+  root.add(endTag('Ände 1', -d.length / 2, d, overhang));
+  root.add(endTag('Ände 2', d.length / 2, d, overhang));
 
   const dimensions = buildDimensions(d, overhang);
   root.add(dimensions);
 
   const ports = [
-    rectPort('end1', 'End 1', new THREE.Vector3(0, 0, -d.length / 2), new THREE.Vector3(0, 0, -1), d.width, d.height, d.ends[0]),
-    rectPort('end2', 'End 2', new THREE.Vector3(0, 0, d.length / 2), new THREE.Vector3(0, 0, 1), d.width, d.height, d.ends[1]),
+    rectPort('end1', 'Ände 1', new THREE.Vector3(0, 0, -d.length / 2), new THREE.Vector3(0, 0, -1), d.width, d.height, d.ends[0]),
+    rectPort('end2', 'Ände 2', new THREE.Vector3(0, 0, d.length / 2), new THREE.Vector3(0, 0, 1), d.width, d.height, d.ends[1]),
   ];
 
   return { root, insulation, dimensions, bounds, ports };

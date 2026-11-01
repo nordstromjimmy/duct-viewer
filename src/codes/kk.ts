@@ -13,10 +13,10 @@ import {
 import type { ParseResult, SpecRow, StraightDuct, SurfaceSpec } from './types';
 
 export const VARIANTS: Record<number, { label: string; length?: number; buildLength?: number }> = {
-  1: { label: 'Standard length 1150 mm', length: 1150, buildLength: 1165 },
-  2: { label: 'Standard length 2300 mm', length: 2300, buildLength: 2330 },
-  3: { label: 'Pass piece < 2000 mm' },
-  4: { label: 'Pass piece > 2000 mm' },
+  1: { label: 'Standardlängd 1150 mm', length: 1150, buildLength: 1165 },
+  2: { label: 'Standardlängd 2300 mm', length: 2300, buildLength: 2330 },
+  3: { label: 'Passbit < 2000 mm' },
+  4: { label: 'Passbit > 2000 mm' },
 };
 
 /** Weight table, kg/m (±10 %). weights[largest][smallest]. */
@@ -50,12 +50,12 @@ export function parseKK(input: string): ParseResult<StraightDuct> {
   const s = normalise(input);
   // Also accepts the Lindab spelling KK-C-...
   const split = splitCode(s, 'KK(?:\\s*-?\\s*C)?');
-  if (!split) return fail('A straight duct code starts with KK followed by numbers, e.g. KK-1-1500-1000-0');
+  if (!split) return fail('En kod för rak kanal börjar med KK följt av siffror, t.ex. KK-1-1500-1000-0');
 
   const { nums, endPart } = split;
   const warnings: string[] = [];
   if (nums.length < 4) {
-    return fail('Too few fields. Expected KK-a-bbbb-cccc-d (variant, largest side, smallest side, insulation).');
+    return fail('För få fält. Förväntade KK-a-bbbb-cccc-d (utförande, största sida, minsta sida, isolering).');
   }
 
   const [a, width, height, d] = nums;
@@ -63,13 +63,13 @@ export function parseKK(input: string): ParseResult<StraightDuct> {
 
   // a – variant
   const variant = VARIANTS[a];
-  if (!variant) return fail(`Unknown variant "${a}". Use 1 (1150 mm), 2 (2300 mm), 3 (pass < 2000) or 4 (pass > 2000).`);
+  if (!variant) return fail(`Okänt utförande "${a}". Använd 1 (1150 mm), 2 (2300 mm), 3 (passbit < 2000) eller 4 (passbit > 2000).`);
 
   // bbbb / cccc – dimensions
-  if (width <= 0 || height <= 0) return fail('Dimensions must be greater than 0.');
-  if (width < height) warnings.push(`Largest side should come first (${height}x${width}). Showing as typed.`);
+  if (width <= 0 || height <= 0) return fail('Måtten måste vara större än 0.');
+  if (width < height) warnings.push(`Största sidan ska stå först (${height}x${width}). Visas som du skrev.`);
   if (Math.max(width, height) > 2000 || Math.min(width, height) < 100) {
-    warnings.push('Dimension is outside the datasheet range (100–2000 mm).');
+    warnings.push('Måttet ligger utanför produktbladets område (100–2000 mm).');
   }
 
   // d – insulation
@@ -81,20 +81,20 @@ export function parseKK(input: string): ParseResult<StraightDuct> {
   let length: number;
   if (a === 3 || a === 4) {
     const l = rest.shift();
-    if (l === undefined) return fail(`Variant ${a} is a pass piece – add the length in mm, e.g. KK-${a}-${width}-${height}-${d}-${a === 3 ? 1750 : 2800}`);
+    if (l === undefined) return fail(`Utförande ${a} är en passbit – lägg till längden i mm, t.ex. KK-${a}-${width}-${height}-${d}-${a === 3 ? 1750 : 2800}`);
     length = l;
-    if (a === 3 && length >= 2000) warnings.push('Variant 3 is for pass pieces shorter than 2000 mm.');
-    if (a === 4 && length <= 2000) warnings.push('Variant 4 is for pass pieces longer than 2000 mm.');
+    if (a === 3 && length >= 2000) warnings.push('Utförande 3 är för passbitar kortare än 2000 mm.');
+    if (a === 4 && length <= 2000) warnings.push('Utförande 4 är för passbitar längre än 2000 mm.');
   } else {
     length = variant.length!;
     // A length may still be written out for standard ducts (e.g. KK-1-1200-500-0-1150).
     const surfaceFieldsLeft = insulation.needsSurface ? 1 : 0;
     if (rest.length > surfaceFieldsLeft) {
       const l = rest.shift()!;
-      if (l !== length) warnings.push(`Variant ${a} is always ${length} mm – ignoring length ${l}.`);
+      if (l !== length) warnings.push(`Utförande ${a} är alltid ${length} mm – längden ${l} ignoreras.`);
     }
   }
-  if (length <= 0) return fail('Length must be greater than 0.');
+  if (length <= 0) return fail('Längden måste vara större än 0.');
 
   // f – surface layer (only for insulation 7 and 8)
   let surface: SurfaceSpec | null = null;
@@ -104,13 +104,13 @@ export function parseKK(input: string): ParseResult<StraightDuct> {
     surface = sf;
   }
 
-  if (rest.length > 0) warnings.push(`Extra field(s) ignored: ${rest.join('-')}`);
+  if (rest.length > 0) warnings.push(`Extra fält ignoreras: ${rest.join('-')}`);
 
   const ends = parseEnds(endPart, warnings);
   if (typeof ends === 'string') return fail(ends);
 
   if (weightPerMeter(width, height) !== null && insulation.side !== 'none') {
-    warnings.push('Weight is for the uninsulated duct (±10 %).');
+    warnings.push('Vikten gäller oisolerad kanal (±10 %).');
   }
 
   return {
@@ -133,17 +133,17 @@ export function parseKK(input: string): ParseResult<StraightDuct> {
 
 export function describeKK(d: StraightDuct): SpecRow[] {
   const rows: SpecRow[] = [
-    { label: 'Product', value: 'Straight duct', token: 'KK' },
-    { label: 'Variant', value: VARIANTS[d.variant].label, token: `a=${d.variant}` },
-    { label: 'Opening', value: `${d.width} × ${d.height} mm` },
-    { label: 'Length', value: `${d.length} mm` },
-    { label: 'Build length', value: `${d.buildLength} mm` },
+    { label: 'Produkt', value: 'Rak kanal', token: 'KK' },
+    { label: 'Utförande', value: VARIANTS[d.variant].label, token: `a=${d.variant}` },
+    { label: 'Öppning', value: `${d.width} × ${d.height} mm` },
+    { label: 'Längd', value: `${d.length} mm` },
+    { label: 'Byggmått', value: `${d.buildLength} mm` },
     ...commonRows(d),
   ];
   const kgm = weightPerMeter(d.width, d.height);
   rows.push({
-    label: 'Weight',
-    value: kgm === null ? 'Size not in weight table' : `${kgm.toFixed(1)} kg/m · ≈ ${((kgm * d.length) / 1000).toFixed(1)} kg`,
+    label: 'Vikt',
+    value: kgm === null ? 'Dimensionen finns inte i vikttabellen' : `${kgm.toFixed(1)} kg/m · ≈ ${((kgm * d.length) / 1000).toFixed(1)} kg`,
   });
   return rows;
 }

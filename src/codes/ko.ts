@@ -69,30 +69,30 @@ export function parseKO(input: string): ParseResult<RoundTransition> {
   const s = normalise(input);
   // Accept KO as well as KÖ, for keyboards without Ö
   const split = splitCode(s, 'K[ÖO]');
-  if (!split) return fail('A rectangular-to-round transition code starts with KÖ, e.g. KÖ-5-1500-1000-0-315-500');
+  if (!split) return fail('En kod för övergång till cirkulärt börjar med KÖ, t.ex. KÖ-5-1500-1000-0-315-500');
 
   const { nums, endPart } = split;
   const warnings: string[] = [];
   if (nums.length < 5) {
-    return fail('Too few fields. Expected KÖ-a-bbbb-cccc-0-eeee (placement, rectangular side, insulation, diameter).');
+    return fail('För få fält. Förväntade KÖ-a-bbbb-cccc-0-eeee (placering, rektangulär sida, isolering, diameter).');
   }
 
   const [a, width, height, d, diameter] = nums;
   const rest = nums.slice(5);
 
   // a – placement
-  if (a === 0) return fail('Placement 0 is a special version made from a sketch – it can\'t be drawn from the code alone.');
-  if (!(a in PLACEMENTS)) return fail(`Unknown placement "${a}". Use 1–5 (5 = centred, standard).`);
+  if (a === 0) return fail('Placering 0 är ett specialutförande enligt skiss – den kan inte ritas bara utifrån koden.');
+  if (!(a in PLACEMENTS)) return fail(`Okänd placering "${a}". Använd 1–5 (5 = centrerad, standard).`);
   const placement = a as Placement;
 
-  if (width <= 0 || height <= 0 || diameter <= 0) return fail('Dimensions must be greater than 0.');
+  if (width <= 0 || height <= 0 || diameter <= 0) return fail('Måtten måste vara större än 0.');
 
   // Insulation – only uninsulated exists for KÖ
-  if (d !== 0) warnings.push(`KÖ is only made uninsulated (insulation field 0) – ignoring "${d}".`);
+  if (d !== 0) warnings.push(`KÖ tillverkas bara oisolerad (isoleringsfält 0) – "${d}" ignoreras.`);
 
   // Circle bigger than the rectangle?
   if (diameter > Math.min(width, height)) {
-    warnings.push(`Ø${diameter} is larger than the ${Math.min(width, height)} mm side – the circular end sticks out past the rectangle.`);
+    warnings.push(`Ø${diameter} är större än sidan ${Math.min(width, height)} mm – den cirkulära änden sticker ut utanför rektangeln.`);
   }
 
   // ffff – length, or the standard length
@@ -100,32 +100,32 @@ export function parseKO(input: string): ParseResult<RoundTransition> {
   let isStandard = false;
   if (rest.length >= 1) {
     length = rest.shift()!;
-    if (length <= RECT_COLLAR) return fail(`Length ffff must be more than ${RECT_COLLAR} mm.`);
+    if (length <= RECT_COLLAR) return fail(`Längden ffff måste vara mer än ${RECT_COLLAR} mm.`);
   } else {
     length = standardLength(width, height);
     isStandard = true;
   }
-  if (rest.length > 0) warnings.push(`Extra field(s) ignored: ${rest.join('-')}`);
+  if (rest.length > 0) warnings.push(`Extra fält ignoreras: ${rest.join('-')}`);
 
   // End types: one rectangular end code and/or NIPPEL/MUFF, in any order
   let rectEnd: EndCode = 'PG';
   let roundEnd: RoundEnd = 'nipple';
   if (endPart) {
     const tokens = endPart.split('/').map((t) => t.trim()).filter(Boolean);
-    if (tokens.length > 2) return fail('Give at most two end types, e.g. PG/MUFF');
+    if (tokens.length > 2) return fail('Ange högst två ändutföranden, t.ex. PG/MUFF');
     let gotRect = false;
     let gotRound = false;
     for (const t of tokens) {
       const word = t.replace(/\s+/g, '');
       if (word in ROUND_END_WORDS) {
-        if (gotRound) return fail('Only one circular end type (NIPPEL or MUFF).');
+        if (gotRound) return fail('Bara ett cirkulärt ändutförande (NIPPEL eller MUFF).');
         roundEnd = ROUND_END_WORDS[word];
         gotRound = true;
         continue;
       }
       const code = parseEndToken(t);
-      if (!code) return fail(`Unknown end type "${t}". Rectangular end: PG, L, P, F, B, Fast B, Falsad B, TN. Circular end: NIPPEL or MUFF.`);
-      if (gotRect) return fail('Only one rectangular end type – the other end is circular (NIPPEL or MUFF).');
+      if (!code) return fail(`Okänt ändutförande "${t}". Rektangulär ände: PG, L, P, F, B, Fast B, Falsad B, TN. Cirkulär ände: NIPPEL eller MUFF.`);
+      if (gotRect) return fail('Bara ett rektangulärt ändutförande – den andra änden är cirkulär (NIPPEL eller MUFF).');
       rectEnd = code;
       gotRect = true;
     }
@@ -148,24 +148,24 @@ export function parseKO(input: string): ParseResult<RoundTransition> {
   };
 
   const angle = steepestWall(product);
-  if (angle > 45) warnings.push(`Steep transition: one wall is at ${angle.toFixed(0)}° to the duct axis.`);
+  if (angle > 45) warnings.push(`Brant övergång: en vägg lutar ${angle.toFixed(0)}° mot kanalens axel.`);
 
   return { ok: true, product };
 }
 
 export function describeKO(p: RoundTransition): SpecRow[] {
   return [
-    { label: 'Product', value: 'Transition, rectangular to round', token: 'KÖ' },
-    { label: 'Placement', value: PLACEMENTS[p.placement].label, token: `a=${p.placement}` },
-    { label: 'Rectangular end', value: `${p.width} × ${p.height} mm` },
-    { label: 'Circular end', value: `Ø${p.diameter} mm`, token: 'eeee' },
-    { label: 'Length', value: `${p.length} mm${p.standardLength ? ' (standard)' : ''}`, token: 'ffff' },
-    { label: 'Steepest wall', value: `${steepestWall(p).toFixed(1)}°` },
-    { label: 'Insulation', value: 'Uninsulated', token: 'd=0' },
-    { label: 'End 1 (rect.)', value: END_TYPES[p.ends[0]].label, token: END_TYPES[p.ends[0]].code },
+    { label: 'Produkt', value: 'Övergång, rektangulär till cirkulär', token: 'KÖ' },
+    { label: 'Placering', value: PLACEMENTS[p.placement].label, token: `a=${p.placement}` },
+    { label: 'Rektangulär ände', value: `${p.width} × ${p.height} mm` },
+    { label: 'Cirkulär ände', value: `Ø${p.diameter} mm`, token: 'eeee' },
+    { label: 'Längd', value: `${p.length} mm${p.standardLength ? ' (standard)' : ''}`, token: 'ffff' },
+    { label: 'Brantaste vägg', value: `${steepestWall(p).toFixed(1)}°` },
+    { label: 'Isolering', value: 'Oisolerad', token: 'd=0' },
+    { label: 'Ände 1 (rekt.)', value: END_TYPES[p.ends[0]].label, token: END_TYPES[p.ends[0]].code },
     {
-      label: 'End 2 (round)',
-      value: p.roundEnd === 'nipple' ? 'Nipple with rubber gasket (standard)' : 'Socket (muff)',
+      label: 'Ände 2 (cirk.)',
+      value: p.roundEnd === 'nipple' ? 'Nippel med gummipackning (standard)' : 'Muff',
       token: p.roundEnd === 'nipple' ? 'NIPPEL' : 'MUFF',
     },
   ];

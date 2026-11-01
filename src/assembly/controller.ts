@@ -111,17 +111,17 @@ export class AssemblyController {
 
     // Hint
     let hint: string;
-    if (n === 0) hint = saved ? 'Add a part from My parts to start.' : 'Save parts in the Part tab first, then add them here.';
-    else if (this.target) hint = 'The next part goes on the highlighted end. Click another orange end to change it.';
-    else if (openCount === 0) hint = 'All ends are connected or closed.';
-    else hint = 'Click an orange end to choose where the next part goes.';
-    this.ui.hint.textContent = `${n} part${n === 1 ? '' : 's'} · ${openCount} open end${openCount === 1 ? '' : 's'}. ${hint}`;
+    if (n === 0) hint = saved ? 'Lägg till en del från Mina delar för att börja.' : 'Spara delar under fliken Del först, och lägg sedan till dem här.';
+    else if (this.target) hint = 'Nästa del hamnar på den markerade änden. Klicka på en annan orange ände för att byta.';
+    else if (openCount === 0) hint = 'Alla ändar är anslutna eller stängda.';
+    else hint = 'Klicka på en orange ände för att välja var nästa del hamnar.';
+    this.ui.hint.textContent = `${n} ${n === 1 ? 'del' : 'delar'} · ${openCount} ${openCount === 1 ? 'öppen ände' : 'öppna ändar'}. ${hint}`;
 
     // Warnings: parts that couldn't be placed, joints that don't fit
     const notes: string[] = [];
     for (const p of this.lay?.problems ?? []) notes.push(`${p.code}: ${p.message}`);
     const bad = this.lay?.joints.filter((j) => !j.ok) ?? [];
-    if (bad.length) notes.push(`${bad.length} joint${bad.length === 1 ? '' : 's'} where the sizes don't match (red flags).`);
+    if (bad.length) notes.push(`${bad.length} ${bad.length === 1 ? 'skarv' : 'skarvar'} där dimensionerna inte stämmer (röda flaggor).`);
     notes.push(...this.collisionTexts());
     this.ui.warnings.replaceChildren(
       ...notes.map((t) => {
@@ -168,12 +168,12 @@ export class AssemblyController {
     );
 
     const notes: string[] = [];
-    if (order.duplicates.length) notes.push(`Detail no. ${order.duplicates.join(', ')} is used more than once.`);
+    if (order.duplicates.length) notes.push(`Detaljnr ${order.duplicates.join(', ')} används mer än en gång.`);
     const cuts = order.lines.reduce((n, l) => n + l.cuts.length, 0);
-    if (cuts) notes.push(`${cuts} planned site cut${cuts === 1 ? '' : 's'} – listed in the exported text.`);
+    if (cuts) notes.push(`${cuts} ${cuts === 1 ? 'planerad kapning' : 'planerade kapningar'} på plats – listas i den exporterade texten.`);
     if (order.other.length) {
       const n = order.other.reduce((s, o) => s + o.count, 0);
-      notes.push(`${n} non-Crenna part${n === 1 ? '' : 's'} (unit, silencers, dampers) listed separately in the text.`);
+      notes.push(`${n} ${n === 1 ? 'del' : 'delar'} som inte är från Crenna (aggregat, ljuddämpare, spjäll) listas separat i texten.`);
     }
     note.textContent = notes.join(' ');
   }
@@ -186,8 +186,8 @@ export class AssemblyController {
     input.step = '1';
     input.value = String(value);
     input.className = 'detail-input' + (manual ? ' is-manual' : '');
-    input.title = manual ? 'Set by hand – clear to number automatically' : 'Automatic – type to set your own';
-    input.setAttribute('aria-label', 'Detail number');
+    input.title = manual ? 'Satt för hand – töm fältet för automatisk numrering' : 'Automatiskt – skriv för att sätta ett eget';
+    input.setAttribute('aria-label', 'Detaljnummer');
     input.addEventListener('change', () => {
       const v = Math.round(Number(input.value));
       this.store.setDetail(code, input.value.trim() === '' || !(v >= 1) ? undefined : v);
@@ -201,8 +201,8 @@ export class AssemblyController {
     return this.collisions.map((c) => {
       const a = this.find(c.partId);
       const d = this.order?.detailOf.get(c.partId);
-      const who = `${d !== undefined ? `Detail ${d} · ` : ''}${a?.code ?? '?'}`;
-      return c.target === 'roof' ? `${who} hits the roof.` : `${who} passes through wall ${c.wall! + 1}.`;
+      const who = `${d !== undefined ? `Detalj ${d} · ` : ''}${a?.code ?? '?'}`;
+      return c.target === 'roof' ? `${who} går upp i taket.` : `${who} går igenom vägg ${c.wall! + 1}.`;
     });
   }
 
@@ -236,16 +236,16 @@ export class AssemblyController {
     const ownPort = laid.model.ports.find((p) => p.id === asm.via);
 
     // Joint status
-    let joint = 'First part – everything else is attached to it.';
+    let joint = 'Första delen – allt annat sitter fast i den.';
     let jointCls = 'sel-joint';
     if (asm.parent) {
       const parent = this.lay!.parts.find((p) => p.asm.id === asm.parent);
       const j = this.lay!.joints.find((x) => x.childId === asm.id);
       const pPort = parent?.ports.find((w) => w.port.id === asm.parentPort);
-      joint = `${ownPort?.label ?? asm.via} → ${pPort?.port.label ?? asm.parentPort} of ${parent?.asm.code ?? '?'}`;
+      joint = `${ownPort?.label ?? asm.via} → ${pPort?.port.label ?? asm.parentPort} på ${parent?.asm.code ?? '?'}`;
       if (j?.ok) joint += ` · ${ownPort ? portSize(ownPort) : ''} ✓`;
       else if (j) {
-        joint += ` · sizes don't match: ${j.text}`;
+        joint += ` · dimensionerna stämmer inte: ${j.text}`;
         jointCls += ' sel-joint--bad';
       }
     }
@@ -260,26 +260,26 @@ export class AssemblyController {
       actions.append(b);
       return b;
     };
-    button('roll-left', '↺', 'Turn this part 90° around its joint');
-    button('roll-right', '↻', 'Turn this part 90° the other way');
+    button('roll-left', '↺', 'Vrid den här delen 90° runt skarven');
+    button('roll-right', '↻', 'Vrid den här delen 90° åt andra hållet');
     if (asm.parent && laid.model.ports.filter((p) => p.open).length > 1) {
-      button('turn', '⇄ Turn around', 'Attach by a different end');
+      button('turn', '⇄ Vänd', 'Fäst med en annan ände');
     }
-    button('view', 'View', 'Open in the Part tab');
-    button('remove', below ? `Remove (+${below})` : 'Remove', below ? `Also removes the ${below} part(s) attached after it` : 'Remove this part', 'danger');
+    button('view', 'Visa', 'Öppna under fliken Del');
+    button('remove', below ? `Ta bort (+${below})` : 'Ta bort', below ? `Tar även bort ${below} del(ar) som sitter efter den` : 'Ta bort den här delen', 'danger');
 
     const head = el('div', 'sel-head');
     head.append(el('span', 'tok', laid.product.kind), el('strong', '', summary(laid.product)));
-    box.replaceChildren(el('h2', '', 'Selected part'), head, el('div', 'sel-code', asm.code), el('p', jointCls, joint));
+    box.replaceChildren(el('h2', '', 'Vald del'), head, el('div', 'sel-code', asm.code), el('p', jointCls, joint));
     const line = this.order?.lines.find((l) => l.partIds.includes(asm.id));
     if (line) {
       const row = el('div', 'sel-detail');
-      const lab = el('label', '', 'Detail no.');
+      const lab = el('label', '', 'Detaljnr');
       lab.append(this.detailInput(line.code, line.detail, line.manual));
-      row.append(lab, el('span', 'sel-cut__of', line.count > 1 ? `${line.count} of this code in the assembly` : 'only one of this code'));
+      row.append(lab, el('span', 'sel-cut__of', line.count > 1 ? `${line.count} st av den här koden i sammanställningen` : 'bara en av den här koden'));
       box.append(row);
     } else if (this.order?.other.some((o) => o.partIds.includes(asm.id))) {
-      box.append(el('div', 'sel-detail sel-cut--hint', 'Not a Crenna part – listed under “Övrigt” in the order text.'));
+      box.append(el('div', 'sel-detail sel-cut--hint', 'Inte en Crenna-del – listas under ”Övrigt” i beställningstexten.'));
     }
     const cut = this.cutSection(asm);
     if (cut) box.append(cut);
@@ -296,13 +296,13 @@ export class AssemblyController {
 
     if (!canCut(parsed.product)) {
       wrap.classList.add('sel-cut--hint');
-      wrap.textContent = 'To cut this duct to length on site, order it with a loose (L) or plain (P) end, e.g. PG/L.';
+      wrap.textContent = 'För att kapa kanalen på plats, beställ den med lös (L) eller slät (P) ände, t.ex. PG/L.';
       return wrap;
     }
 
     const current = asm.cut && asm.cut < ordered ? asm.cut : ordered;
     const label = document.createElement('label');
-    label.textContent = 'Cut length';
+    label.textContent = 'Kaplängd';
     const input = document.createElement('input');
     input.type = 'number';
     input.name = 'cut';
@@ -313,14 +313,14 @@ export class AssemblyController {
     label.append(input);
     const unit = document.createElement('span');
     unit.className = 'sel-cut__of';
-    unit.textContent = `mm · ordered ${ordered}`;
+    unit.textContent = `mm · beställd ${ordered}`;
     wrap.append(label, unit);
 
     if (current < ordered) {
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.dataset.act = 'cut-reset';
-      reset.textContent = 'Full length';
+      reset.textContent = 'Full längd';
       wrap.append(reset);
     }
     const msg = document.createElement('p');
@@ -331,11 +331,11 @@ export class AssemblyController {
     input.addEventListener('change', () => {
       const v = Math.round(Number(input.value));
       if (!(v >= MIN_CUT)) {
-        msg.textContent = `At least ${MIN_CUT} mm.`;
+        msg.textContent = `Minst ${MIN_CUT} mm.`;
         return;
       }
       if (v > ordered) {
-        msg.textContent = `Can't be longer than the ordered ${ordered} mm.`;
+        msg.textContent = `Kan inte vara längre än beställda ${ordered} mm.`;
         input.value = String(current);
         return;
       }
@@ -421,9 +421,9 @@ export class AssemblyController {
       return null;
     }
 
-    if (!this.target) return 'Click an orange end first, to choose where the part goes.';
+    if (!this.target) return 'Klicka först på en orange ände för att välja var delen ska sitta.';
     const target = this.lay?.parts.find((p) => p.asm.id === this.target!.partId)?.ports.find((w) => w.port.id === this.target!.portId);
-    if (!target) return 'Click an orange end first, to choose where the part goes.';
+    if (!target) return 'Klicka först på en orange ände för att välja var delen ska sitta.';
 
     const fit = bestFit(ports, target.port);
     const parentId = this.target.partId;

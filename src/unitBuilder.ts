@@ -8,11 +8,11 @@ type Config = Pick<VentUnit, 'length' | 'depth' | 'height' | 'connections'>;
 
 /** Labels for the two size fields, per face. */
 const SIZE_HINT: Record<UnitFace, [string, string]> = {
-  T: ['along length', 'along depth'],
-  F: ['width', 'height'],
-  B: ['width', 'height'],
-  V: ['width', 'height'],
-  H: ['width', 'height'],
+  T: ['längs längden', 'längs djupet'],
+  F: ['bredd', 'höjd'],
+  B: ['bredd', 'höjd'],
+  V: ['bredd', 'höjd'],
+  H: ['bredd', 'höjd'],
 };
 
 export class UnitBuilder {
@@ -32,7 +32,7 @@ export class UnitBuilder {
     for (const c of this.config.connections) this.memory.set(c.role, c);
 
     root.innerHTML = `
-      <summary>Ventilation unit <span class="ub-tag">builder</span></summary>
+      <summary>Ventilationsaggregat <span class="ub-tag">byggare</span></summary>
       <div class="ub"></div>`;
     this.body = root.querySelector('.ub')!;
     this.render();
@@ -95,10 +95,10 @@ export class UnitBuilder {
       return `
         <div class="ub-conn${on ? '' : ' is-off'}" data-role="${role}" style="--role:${r.color}">
           <label class="ub-on"><input type="checkbox" name="on"${on ? ' checked' : ''} />
-            <span class="ub-dot"></span><span class="ub-name">${r.label}<small>${r.sv}</small></span></label>
+            <span class="ub-dot"></span><span class="ub-name">${r.label}<small>${role}</small></span></label>
           <div class="ub-fields">
             <div class="ub-row ub-place">
-              <select name="face" aria-label="${r.label} face">${faceOpts}</select>
+              <select name="face" aria-label="${r.label} sida">${faceOpts}</select>
               <select name="slot" aria-label="${r.label} position">${slotOpts}</select>
             </div>
             <div class="ub-row ub-size">
@@ -114,10 +114,10 @@ export class UnitBuilder {
         .map(([k, v]) => `<button type="button" data-preset="${k}">${v.label}</button>`)
         .join('')}</div>
       <div class="ub-dims">
-        ${num('length', c.length, 'Length')}${num('depth', c.depth, 'Depth')}${num('height', c.height, 'Height')}
+        ${num('length', c.length, 'Längd')}${num('depth', c.depth, 'Djup')}${num('height', c.height, 'Höjd')}
       </div>
       <div class="ub-conns">${rows}</div>
-      <p class="ub-note">Positions 1–4 run left to right seen from the front. Sizes in mm: on top, width is along the unit's length.</p>`;
+      <p class="ub-note">Positionerna 1–4 räknas från vänster till höger sett framifrån. Mått i mm: på ovansidan går bredden längs aggregatets längd.</p>`;
   }
 
   private onInput(e: Event) {

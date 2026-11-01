@@ -132,7 +132,7 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
       const target = parent?.ports.find((p) => p.port.id === asm.parentPort);
       if (!parent || !target) {
         disposeModel(model.root);
-        out.problems.push({ id: asm.id, code: asm.code, message: 'The end it was attached to no longer exists.' });
+        out.problems.push({ id: asm.id, code: asm.code, message: 'Änden den satt fast i finns inte längre.' });
         continue;
       }
       matrix = attachMatrix(own, target, asm.roll);
@@ -143,7 +143,7 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
         parentId: parent.asm.id,
         position: target.position.clone(),
         ok,
-        text: ok ? '' : `${portSize(target.port)} → ${portSize(own)}${asm.roll % 2 ? ' (turned 90°)' : ''}`,
+        text: ok ? '' : `${portSize(target.port)} → ${portSize(own)}${asm.roll % 2 ? ' (vriden 90°)' : ''}`,
       });
     }
 
@@ -161,7 +161,7 @@ export function layout(assembly: AsmPart[], mat: Materials): Layout {
   }
 
   for (const w of waiting) {
-    out.problems.push({ id: w.id, code: w.code, message: 'Not connected to the assembly.' });
+    out.problems.push({ id: w.id, code: w.code, message: 'Inte ansluten till sammanställningen.' });
   }
   return out;
 }

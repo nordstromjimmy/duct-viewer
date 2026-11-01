@@ -35,25 +35,25 @@ const fail = (error: string): ParseResult<Tee> => ({ ok: false, error });
 export function parseKT(input: string): ParseResult<Tee> {
   const s = normalise(input);
   const split = splitCode(s, 'KT');
-  if (!split) return fail('A T-piece code starts with KT followed by numbers, e.g. KT-1-1500-1000-0-1200');
+  if (!split) return fail('En kod för T-stycke börjar med KT följt av siffror, t.ex. KT-1-1500-1000-0-1200');
 
   const { nums, endPart } = split;
   const warnings: string[] = [];
   if (nums.length < 5) {
-    return fail('Too few fields. Expected KT-a-bbbb-cccc-d-eeee (variant, run opening, insulation, branch side).');
+    return fail('För få fält. Förväntade KT-a-bbbb-cccc-d-eeee (utförande, genomgående öppning, isolering, avstickarens sida).');
   }
 
   const [a, width, height, d, branchWidth] = nums;
   const rest = nums.slice(5);
 
-  if (a !== 1 && a !== 2) return fail(`Unknown variant "${a}". Use 1 (legs 130/130/130) or 2 (custom legs from a sketch).`);
-  if (a === 2) warnings.push('Variant 2 has custom leg lengths from a sketch – drawn with the standard 130 mm legs.');
+  if (a !== 1 && a !== 2) return fail(`Okänt utförande "${a}". Använd 1 (ben 130/130/130) eller 2 (valfria ben enligt skiss).`);
+  if (a === 2) warnings.push('Utförande 2 har valfria benlängder enligt skiss – ritas med standardben 130 mm.');
 
-  if (width <= 0 || height <= 0 || branchWidth <= 0) return fail('Dimensions must be greater than 0.');
+  if (width <= 0 || height <= 0 || branchWidth <= 0) return fail('Måtten måste vara större än 0.');
 
   const insulation = parseInsulation(d);
   if (typeof insulation === 'string') return fail(insulation);
-  checkInsideFit(insulation, Math.min(width, branchWidth), height, warnings, 'T-piece');
+  checkInsideFit(insulation, Math.min(width, branchWidth), height, warnings, 'T-stycke');
 
   let surface: SurfaceSpec | null = null;
   if (insulation.needsSurface) {
@@ -61,23 +61,23 @@ export function parseKT(input: string): ParseResult<Tee> {
     if (typeof sf === 'string') return fail(sf);
     surface = sf;
   }
-  if (rest.length > 0) warnings.push(`Extra field(s) ignored: ${rest.join('-')}`);
+  if (rest.length > 0) warnings.push(`Extra fält ignoreras: ${rest.join('-')}`);
 
   // End types for ends 1, 2 and 3
   let ends: EndCode[] = ['PG', 'PG', 'PG'];
   if (endPart) {
     const tokens = endPart.split('/').map((t) => t.trim()).filter(Boolean);
-    if (tokens.length > 3) return fail('Give at most three end types (end 1 / end 2 / end 3), e.g. PG/PG/F');
+    if (tokens.length > 3) return fail('Ange högst tre ändutföranden (ände 1 / ände 2 / ände 3), t.ex. PG/PG/F');
     const parsed = tokens.map(parseEndToken);
     const bad = tokens.find((_, i) => parsed[i] === null);
-    if (bad !== undefined) return fail(`Unknown end type "${bad}". Valid: PG, L, P, F, B, Fast B, Falsad B, TN.`);
+    if (bad !== undefined) return fail(`Okänt ändutförande "${bad}". Giltiga: PG, L, P, F, B, Fast B, Falsad B, TN.`);
     const codes = parsed as EndCode[];
     if (codes.length === 1) {
       ends = [codes[0], codes[0], codes[0]];
-      warnings.push(`Only one end type given – using ${END_TYPES[codes[0]].code} on all three ends.`);
+      warnings.push(`Bara ett ändutförande angivet – använder ${END_TYPES[codes[0]].code} på alla tre ändarna.`);
     } else if (codes.length === 2) {
       ends = [codes[0], codes[1], 'PG'];
-      warnings.push('Two end types given – used for ends 1 and 2, branch (end 3) is PG. Add a third for the branch, e.g. PG/PG/F.');
+      warnings.push('Två ändutföranden angivna – används för ände 1 och 2, avstickaren (ände 3) får PG. Lägg till ett tredje för avstickaren, t.ex. PG/PG/F.');
     } else {
       ends = codes;
     }
@@ -104,12 +104,12 @@ export function parseKT(input: string): ParseResult<Tee> {
 
 export function describeKT(p: Tee): SpecRow[] {
   return [
-    { label: 'Product', value: 'T-piece', token: 'KT' },
-    { label: 'Variant', value: p.variant === 1 ? 'Legs 130/130/130 mm' : 'Custom legs (from sketch)', token: `a=${p.variant}` },
-    { label: 'Run (end 1–2)', value: `${p.width} × ${p.height} mm` },
-    { label: 'Branch (end 3)', value: `${p.branchWidth} × ${p.height} mm` },
-    { label: 'Run length', value: `${runLength(p)} mm` },
+    { label: 'Produkt', value: 'T-stycke', token: 'KT' },
+    { label: 'Utförande', value: p.variant === 1 ? 'Ben 130/130/130 mm' : 'Valfria ben (enligt skiss)', token: `a=${p.variant}` },
+    { label: 'Genomgående (ände 1–2)', value: `${p.width} × ${p.height} mm` },
+    { label: 'Avstick (ände 3)', value: `${p.branchWidth} × ${p.height} mm` },
+    { label: 'Genomgående längd', value: `${runLength(p)} mm` },
     ...commonRows(p),
-    { label: 'End 3 (branch)', value: END_TYPES[p.branchEnd].label, token: END_TYPES[p.branchEnd].code },
+    { label: 'Ände 3 (avstick)', value: END_TYPES[p.branchEnd].label, token: END_TYPES[p.branchEnd].code },
   ];
 }

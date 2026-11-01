@@ -126,7 +126,7 @@ export function buildUnit(p: VentUnit, mat: Materials): DuctModel {
     const role = ROLES[c.role];
     ports.push({
       id: role.port,
-      label: `${role.label} (${role.sv})`,
+      label: role.label,
       position: v3(f.center).addScaledVector(n, COLLAR),
       normal: n,
       up,
@@ -141,7 +141,7 @@ export function buildUnit(p: VentUnit, mat: Materials): DuctModel {
     const el = document.createElement('div');
     el.className = 'scene-label unit-conn';
     el.style.setProperty('--role', role.color);
-    el.textContent = `${role.label} · ${role.sv} ${connSize(c)}`;
+    el.textContent = `${role.label} ${connSize(c)}`;
     const lbl = new CSS2DObject(el);
     lbl.position.copy(v3(f.center).addScaledVector(n, COLLAR + 120));
     labels.add(lbl);

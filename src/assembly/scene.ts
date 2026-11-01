@@ -129,7 +129,7 @@ export function buildAssemblyScene(
       root.add(marker);
       if (active) {
         const pos = wp.position.clone().addScaledVector(wp.normal, MARKER_GAP + 40).addScaledVector(wp.up, wp.port.h / 2 + MARKER_MARGIN + 40);
-        root.add(label('Next part goes here', 'scene-label scene-label--accent port-label', pos));
+        root.add(label('Nästa del hamnar här', 'scene-label scene-label--accent port-label', pos));
       }
     }
   }

@@ -173,9 +173,9 @@ export class Store {
     try {
       data = JSON.parse(text);
     } catch {
-      return 'That file isn\'t valid JSON.';
+      return 'Filen är inte giltig JSON.';
     }
-    if (!isProject(data)) return 'That file isn\'t a Duct Viewer project.';
+    if (!isProject(data)) return 'Filen är inte ett Duct Viewer-projekt.';
     this.update((p) => {
       p.parts = data.parts;
       p.assembly = data.assembly;

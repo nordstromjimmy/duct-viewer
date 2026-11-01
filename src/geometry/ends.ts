@@ -125,7 +125,7 @@ function looseEnd(ctx: EndContext): THREE.Group {
   const gap = Math.max(150, Math.min(ctx.w, ctx.h) * 0.3);
   set.position.z = gap;
   loose.add(set);
-  loose.add(label('Loose PG set', 0, ctx.h / 2 + PG_HEIGHT + 40, gap, 'scene-label scene-label--accent'));
+  loose.add(label('Lös PG-sats', 0, ctx.h / 2 + PG_HEIGHT + 40, gap, 'scene-label scene-label--accent'));
   g.add(loose);
   return g;
 }

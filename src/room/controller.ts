@@ -241,7 +241,7 @@ export class RoomController {
     const len = Math.round(Math.hypot(c.x - last[0], c.z - last[1]));
     const el = document.createElement('div');
     el.className = 'wall-len wall-len--live';
-    el.textContent = this.typed ? `${this.typed}▌ mm` : c.closing ? 'Close room' : `${len} mm`;
+    el.textContent = this.typed ? `${this.typed}▌ mm` : c.closing ? 'Stäng rummet' : `${len} mm`;
     const lbl = new CSS2DObject(el);
     lbl.position.set((last[0] + c.x) / 2, y, (last[1] + c.z) / 2);
     o.add(lbl);
@@ -265,16 +265,16 @@ export class RoomController {
     if (this.drawing) {
       hint.textContent =
         pts === 0
-          ? 'Click on the floor to place the first corner.'
-          : `Click to add corners${pts >= 3 ? ', click the first corner to close the room' : ''}. Type a length and press Enter to set it exactly. Backspace takes back a corner, Esc or double-click stops.`;
+          ? 'Klicka på golvet för att sätta första hörnet.'
+          : `Klicka för att lägga till hörn${pts >= 3 ? ', klicka på första hörnet för att stänga rummet' : ''}. Skriv en längd och tryck Enter för att sätta den exakt. Backsteg tar bort ett hörn, Esc eller dubbelklick avslutar.`;
     } else if (!room) {
-      hint.textContent = 'Draw the walls around your assembly. Click the corners on the floor in the top view – floor and roof are added when you close the room.';
+      hint.textContent = 'Rita väggarna runt din sammanställning. Klicka ut hörnen på golvet i vyn ovanifrån – golv och tak läggs till när du stänger rummet.';
     } else {
       hint.textContent = room.closed
-        ? `Room with ${pts} walls. Lengths are inside measurements – change them below.`
-        : `${pts - 1} wall${pts - 1 === 1 ? '' : 's'} (open run). Close the room by drawing again and clicking the first corner, for a floor and roof.`;
+        ? `Rum med ${pts} väggar. Längderna är invändiga mått – ändra dem nedan.`
+        : `${pts - 1} ${pts - 1 === 1 ? 'vägg' : 'väggar'} (öppen rad). Stäng rummet genom att rita igen och klicka på första hörnet, så får du golv och tak.`;
     }
-    drawBtn.textContent = room ? '✎ Draw again' : '✎ Draw walls';
+    drawBtn.textContent = room ? '✎ Rita om' : '✎ Rita väggar';
     drawBtn.hidden = this.drawing;
     stopBtn.hidden = !this.drawing;
     clearBtn.disabled = !room || this.drawing;
@@ -304,7 +304,7 @@ export class RoomController {
       ...segs.map((s, i) => {
         const tr = document.createElement('tr');
         const name = document.createElement('td');
-        name.textContent = `Wall ${i + 1}`;
+        name.textContent = `Vägg ${i + 1}`;
         const cell = document.createElement('td');
         const input = document.createElement('input');
         input.type = 'number';
@@ -322,7 +322,7 @@ export class RoomController {
     // Collisions
     const texts = this.asm.collisionTexts();
     list.replaceChildren(
-      ...(texts.length ? texts : room && pts >= 2 ? ['No parts hit the walls or roof.'] : []).map((t) => {
+      ...(texts.length ? texts : room && pts >= 2 ? ['Inga delar krockar med väggar eller tak.'] : []).map((t) => {
         const li = document.createElement('li');
         li.textContent = t;
         if (!texts.length) li.className = 'is-ok';

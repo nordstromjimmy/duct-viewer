@@ -151,8 +151,8 @@ export function buildRoundTransition(p: RoundTransition, mat: Materials): DuctMo
     obj.position.copy(pos);
     root.add(obj);
   };
-  tag('End 1 · rect', new THREE.Vector3(-W - overhang - 40, H + overhang + 40, 0));
-  tag(`End 2 · Ø${p.diameter} ${p.roundEnd === 'nipple' ? 'nipple' : 'socket'}`, new THREE.Vector3(off.x - r - 40, off.y + r + 60, zTip));
+  tag('Ände 1 · rekt.', new THREE.Vector3(-W - overhang - 40, H + overhang + 40, 0));
+  tag(`Ände 2 · Ø${p.diameter} ${p.roundEnd === 'nipple' ? 'nippel' : 'muff'}`, new THREE.Vector3(off.x - r - 40, off.y + r + 60, zTip));
 
   // Dimensions
   const dims = new THREE.Group();
@@ -169,8 +169,8 @@ export function buildRoundTransition(p: RoundTransition, mat: Materials): DuctMo
   root.add(dims);
 
   const ports = [
-    rectPort('end1', 'End 1 · rect', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), w, h, p.ends[0]),
-    roundPort('end2', 'End 2 · round', new THREE.Vector3(off.x, off.y, zTip), new THREE.Vector3(0, 0, 1), p.diameter, p.roundEnd === 'nipple' ? 'NIPPEL' : 'MUFF'),
+    rectPort('end1', 'Ände 1 · rekt.', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), w, h, p.ends[0]),
+    roundPort('end2', 'Ände 2 · cirk.', new THREE.Vector3(off.x, off.y, zTip), new THREE.Vector3(0, 0, 1), p.diameter, p.roundEnd === 'nipple' ? 'NIPPEL' : 'MUFF'),
   ];
 
   return { root, insulation, dimensions: dims, bounds, ports };

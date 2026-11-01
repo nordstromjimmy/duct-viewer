@@ -23,7 +23,7 @@ export class AccessoryBuilder {
   constructor(root: HTMLDetailsElement, onChange: (code: string) => void) {
     this.root = root;
     this.onChange = onChange;
-    root.innerHTML = `<summary>Silencer &amp; damper <span class="ub-tag">builder</span></summary><div class="ub"></div>`;
+    root.innerHTML = `<summary>Ljuddämpare &amp; spjäll <span class="ub-tag">byggare</span></summary><div class="ub"></div>`;
     this.body = root.querySelector('.ub')!;
     this.render();
 
@@ -69,17 +69,17 @@ export class AccessoryBuilder {
     const opt = (v: string | number, label: string, cur: string | number) => `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
     const num = (name: string, label: string, value: number, min = 50, step = 50) =>
       `<label>${label}<input type="number" name="${name}" value="${value}" min="${min}" step="${step}" /></label>`;
-    const size = `${num('width', 'Width', s.width)}${num('height', 'Height', s.height)}${num('length', 'Length', s.length)}`;
+    const size = `${num('width', 'Bredd', s.width)}${num('height', 'Höjd', s.height)}${num('length', 'Längd', s.length)}`;
     const extra =
       s.kind === 'LD'
-        ? `<label>Baffles<input type="number" name="baffles" value="${s.baffles}" min="0" step="1" /></label>
-           <p class="ub-note">0 = automatic (about one per 300 mm of width).</p>`
-        : `<label>Damper type<select name="type">${(Object.keys(DAMPER_TYPES) as unknown as DamperType[])
-            .map((t) => opt(Number(t), `${DAMPER_TYPES[t].label} · ${DAMPER_TYPES[t].sv}`, s.type))
+        ? `<label>Kulisser<input type="number" name="baffles" value="${s.baffles}" min="0" step="1" /></label>
+           <p class="ub-note">0 = automatiskt (ungefär en per 300 mm bredd).</p>`
+        : `<label>Spjälltyp<select name="type">${(Object.keys(DAMPER_TYPES) as unknown as DamperType[])
+            .map((t) => opt(Number(t), DAMPER_TYPES[t].label, s.type))
             .join('')}</select></label>`;
 
     this.body.innerHTML = `
-      <select name="kind" aria-label="Part">${opt('LD', 'Silencer · Ljuddämpare', s.kind)}${opt('SP', 'Damper · Spjäll', s.kind)}</select>
+      <select name="kind" aria-label="Del">${opt('LD', 'Ljuddämpare', s.kind)}${opt('SP', 'Spjäll', s.kind)}</select>
       <div class="ub-dims">${size}</div>
       <div class="ab-extra">${extra}</div>`;
   }

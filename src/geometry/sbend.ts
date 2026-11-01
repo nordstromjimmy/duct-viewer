@@ -98,8 +98,8 @@ export function buildSBend(p: SBend, mat: Materials): DuctModel {
     obj.position.set(x, H + overhang + 40, z);
     root.add(obj);
   };
-  tag('End 1', -W - overhang - 40, 0);
-  tag('End 2', -p.offset - W - overhang - 40, L);
+  tag('Ände 1', -W - overhang - 40, 0);
+  tag('Ände 2', -p.offset - W - overhang - 40, L);
 
   // Dimensions
   const dims = new THREE.Group();
@@ -125,8 +125,8 @@ export function buildSBend(p: SBend, mat: Materials): DuctModel {
     // Higher than the straight-duct view so the S shape (in the XZ plane) reads clearly
     iso: new THREE.Vector3(1, 1.5, 1.3).normalize(),
     ports: [
-      rectPort('end1', 'End 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), w, h, p.ends[0]),
-      rectPort('end2', 'End 2', new THREE.Vector3(-p.offset, 0, L), new THREE.Vector3(0, 0, 1), w, h, p.ends[1]),
+      rectPort('end1', 'Ände 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), w, h, p.ends[0]),
+      rectPort('end2', 'Ände 2', new THREE.Vector3(-p.offset, 0, L), new THREE.Vector3(0, 0, 1), w, h, p.ends[1]),
     ],
   };
 }

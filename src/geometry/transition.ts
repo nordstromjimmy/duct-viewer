@@ -112,15 +112,15 @@ export function buildTransition(p: Transition, mat: Materials): DuctModel {
   const outsideIns = p.insulation.side === 'outside' ? p.insulation.thickness : 0;
   const overhang = Math.max(endOverhang(p.ends[0]), endOverhang(p.ends[1]), outsideIns);
 
-  root.add(tag('End 1 · big', -p.width / 2 - overhang - 40, p.height / 2 + overhang + 40, z0));
-  root.add(tag('End 2 · small', off.x - p.smallWidth / 2 - overhang - 40, off.y + p.smallHeight / 2 + overhang + 40, z1));
+  root.add(tag('Ände 1 · stor', -p.width / 2 - overhang - 40, p.height / 2 + overhang + 40, z0));
+  root.add(tag('Ände 2 · liten', off.x - p.smallWidth / 2 - overhang - 40, off.y + p.smallHeight / 2 + overhang + 40, z1));
 
   const dimensions = buildDimensions(p, big, small, overhang);
   root.add(dimensions);
 
   const ports = [
-    rectPort('end1', 'End 1 · big', new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
-    rectPort('end2', 'End 2 · small', new THREE.Vector3(off.x, off.y, z1), new THREE.Vector3(0, 0, 1), p.smallWidth, p.smallHeight, p.ends[1]),
+    rectPort('end1', 'Ände 1 · stor', new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, 0, -1), p.width, p.height, p.ends[0]),
+    rectPort('end2', 'Ände 2 · liten', new THREE.Vector3(off.x, off.y, z1), new THREE.Vector3(0, 0, 1), p.smallWidth, p.smallHeight, p.ends[1]),
   ];
 
   return { root, insulation, dimensions, bounds, ports };

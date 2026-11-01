@@ -18,20 +18,20 @@ import type { ParseResult, SpecRow, UnitConnection, UnitFace, UnitRole, VentUnit
 export const UNIT_BASE = 120;
 
 export const ROLES: Record<UnitRole, { label: string; sv: string; port: 'end1' | 'end2' | 'end3' | 'end4'; color: string }> = {
-  TILL: { label: 'Supply', sv: 'Tilluft', port: 'end3', color: '#1971c2' },
-  FRÅN: { label: 'Extract', sv: 'Frånluft', port: 'end4', color: '#e0a800' },
-  UTE: { label: 'Intake', sv: 'Uteluft', port: 'end1', color: '#2f9e44' },
-  AVL: { label: 'Exhaust', sv: 'Avluft', port: 'end2', color: '#9c5b2e' },
+  TILL: { label: 'Tilluft', sv: 'Tilluft', port: 'end3', color: '#1971c2' },
+  FRÅN: { label: 'Frånluft', sv: 'Frånluft', port: 'end4', color: '#e0a800' },
+  UTE: { label: 'Uteluft', sv: 'Uteluft', port: 'end1', color: '#2f9e44' },
+  AVL: { label: 'Avluft', sv: 'Avluft', port: 'end2', color: '#9c5b2e' },
 };
 /** Display order: the duct-side connections first. */
 export const ROLE_ORDER: UnitRole[] = ['TILL', 'FRÅN', 'UTE', 'AVL'];
 
 export const FACES: Record<UnitFace, { label: string; slots: string[] }> = {
-  T: { label: 'Top', slots: ['Pos 1', 'Pos 2', 'Pos 3', 'Pos 4'] },
-  F: { label: 'Front', slots: ['Pos 1', 'Pos 2', 'Pos 3', 'Pos 4'] },
-  B: { label: 'Back', slots: ['Pos 1', 'Pos 2', 'Pos 3', 'Pos 4'] },
-  V: { label: 'Left end', slots: ['Upper', 'Lower'] },
-  H: { label: 'Right end', slots: ['Upper', 'Lower'] },
+  T: { label: 'Ovansida', slots: ['Pos 1', 'Pos 2', 'Pos 3', 'Pos 4'] },
+  F: { label: 'Framsida', slots: ['Pos 1', 'Pos 2', 'Pos 3', 'Pos 4'] },
+  B: { label: 'Baksida', slots: ['Pos 1', 'Pos 2', 'Pos 3', 'Pos 4'] },
+  V: { label: 'Vänster gavel', slots: ['Övre', 'Nedre'] },
+  H: { label: 'Höger gavel', slots: ['Övre', 'Nedre'] },
 };
 
 type Vec = [number, number, number];
@@ -76,15 +76,15 @@ const rect = (role: UnitRole, face: UnitFace, slot: number, w: number, h: number
 
 export const PRESETS: Record<string, { label: string; make: (u: Pick<VentUnit, 'length' | 'depth' | 'height'>) => UnitConfig }> = {
   top: {
-    label: 'All on top',
+    label: 'Alla på ovansidan',
     make: (u) => ({ ...u, connections: [rect('UTE', 'T', 1, 500, 800), rect('AVL', 'T', 2, 500, 800), rect('FRÅN', 'T', 3, 500, 800), rect('TILL', 'T', 4, 500, 800)] }),
   },
   ends: {
-    label: 'On the ends',
+    label: 'På gavlarna',
     make: (u) => ({ ...u, connections: [rect('TILL', 'V', 1, 800, 400), rect('FRÅN', 'V', 2, 800, 400), rect('AVL', 'H', 1, 800, 400), rect('UTE', 'H', 2, 800, 400)] }),
   },
   supply: {
-    label: 'Supply only',
+    label: 'Bara tilluft',
     make: (u) => ({ ...u, connections: [rect('UTE', 'T', 1, 500, 800), rect('TILL', 'T', 4, 500, 800)] }),
   },
 };
@@ -99,37 +99,37 @@ const fail = (error: string): ParseResult<VentUnit> => ({ ok: false, error });
 export function parseAGG(input: string): ParseResult<VentUnit> {
   const s = normalise(input);
   const split = splitCode(s, 'AGG');
-  if (!split) return fail('A ventilation unit code looks like AGG-2400-1200-1300 TILL:T4:500x800 … – easiest is to use the Ventilation unit builder.');
+  if (!split) return fail('En aggregatkod ser ut som AGG-2400-1200-1300 TILL:T4:500x800 … – enklast är att använda aggregatbyggaren.');
   const { nums, endPart } = split;
-  if (nums.length < 3) return fail('Give the unit size: AGG-length-depth-height (mm).');
+  if (nums.length < 3) return fail('Ange aggregatets storlek: AGG-längd-djup-höjd (mm).');
   const [length, depth, height] = nums;
-  if (nums.length > 3) return fail('Too many numbers after AGG – expected AGG-length-depth-height.');
-  if (length < 600 || depth < 400 || height < UNIT_BASE + 300) return fail('That unit is too small to draw (at least 600 × 400 × 420 mm).');
+  if (nums.length > 3) return fail('För många tal efter AGG – förväntade AGG-längd-djup-höjd.');
+  if (length < 600 || depth < 400 || height < UNIT_BASE + 300) return fail('Aggregatet är för litet för att ritas (minst 600 × 400 × 420 mm).');
 
   const warnings: string[] = [];
   const connections: UnitConnection[] = [];
   for (const token of endPart.split(/\s+/).filter(Boolean)) {
     const m = token.match(CONN_RE);
-    if (!m) return fail(`Can't read connection "${token}". Use e.g. TILL:T4:500x800.`);
+    if (!m) return fail(`Kan inte läsa anslutningen "${token}". Använd t.ex. TILL:T4:500x800.`);
     const role = (m[1] === 'FRAN' ? 'FRÅN' : m[1]) as UnitRole;
     const face = m[2] as UnitFace;
     const slot = Number(m[3]);
-    if (connections.some((c) => c.role === role)) return fail(`${ROLES[role].label} (${role}) is given twice.`);
+    if (connections.some((c) => c.role === role)) return fail(`${ROLES[role].label} (${role}) är angiven två gånger.`);
     if (slot < 1 || slot > FACES[face].slots.length) {
-      return fail(`${FACES[face].label} has positions 1–${FACES[face].slots.length} (got ${slot}).`);
+      return fail(`${FACES[face].label} har positionerna 1–${FACES[face].slots.length} (fick ${slot}).`);
     }
     const w = Number(m[4]);
     const h = Number(m[5]);
-    if (w <= 0 || h <= 0) return fail(`${ROLES[role].label}: size must be greater than 0.`);
+    if (w <= 0 || h <= 0) return fail(`${ROLES[role].label}: storleken måste vara större än 0.`);
     connections.push({ role, face, slot, w, h });
   }
 
   // Checks
-  if (connections.length === 0) warnings.push('No connections – add at least one in the builder.');
+  if (connections.length === 0) warnings.push('Inga anslutningar – lägg till minst en i byggaren.');
   for (const c of connections) {
     const f = slotFrame({ length, depth, height }, c.face, c.slot);
     if (c.w > f.maxW || c.h > f.maxH) {
-      warnings.push(`${ROLES[c.role].label} ${connSize(c)} is too big for ${FACES[c.face].label.toLowerCase()} position ${c.slot} (max about ${Math.floor(f.maxW)}×${Math.floor(f.maxH)}).`);
+      warnings.push(`${ROLES[c.role].label} ${connSize(c)} är för stor för ${FACES[c.face].label.toLowerCase()} position ${c.slot} (max ca ${Math.floor(f.maxW)}×${Math.floor(f.maxH)}).`);
     }
   }
   for (let i = 0; i < connections.length; i++) {
@@ -137,7 +137,7 @@ export function parseAGG(input: string): ParseResult<VentUnit> {
       const a = connections[i];
       const b = connections[j];
       if (a.face === b.face && a.slot === b.slot) {
-        warnings.push(`${ROLES[a.role].label} and ${ROLES[b.role].label} are in the same place (${FACES[a.face].label.toLowerCase()} ${a.slot}).`);
+        warnings.push(`${ROLES[a.role].label} och ${ROLES[b.role].label} sitter på samma ställe (${FACES[a.face].label.toLowerCase()} ${a.slot}).`);
       }
     }
   }
@@ -161,14 +161,14 @@ export function parseAGG(input: string): ParseResult<VentUnit> {
 
 export function describeAGG(p: VentUnit): SpecRow[] {
   const rows: SpecRow[] = [
-    { label: 'Product', value: 'Ventilation unit (generic)', token: 'AGG' },
-    { label: 'Size L × D × H', value: `${p.length} × ${p.depth} × ${p.height} mm` },
+    { label: 'Produkt', value: 'Ventilationsaggregat (generiskt)', token: 'AGG' },
+    { label: 'Storlek L × D × H', value: `${p.length} × ${p.depth} × ${p.height} mm` },
   ];
   for (const role of ROLE_ORDER) {
     const c = p.connections.find((x) => x.role === role);
     const r = ROLES[role];
     rows.push({
-      label: `${r.label} (${r.sv})`,
+      label: r.label,
       value: c ? `${FACES[c.face].label} ${FACES[c.face].slots[c.slot - 1].toLowerCase()} · ${connSize(c)}` : '–',
       token: role,
     });

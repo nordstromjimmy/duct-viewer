@@ -43,27 +43,27 @@ const fail = (error: string): ParseResult<SBend> => ({ ok: false, error });
 export function parseKS(input: string): ParseResult<SBend> {
   const s = normalise(input);
   const split = splitCode(s, 'KS');
-  if (!split) return fail('An S-bend code starts with KS followed by numbers, e.g. KS-1-1000-500-0-550-1000');
+  if (!split) return fail('En kod för S-böj börjar med KS följt av siffror, t.ex. KS-1-1000-500-0-550-1000');
 
   const { nums, endPart } = split;
   const warnings: string[] = [];
   if (nums.length < 6) {
-    return fail('Too few fields. Expected KS-1-bbbb-cccc-d-eeee-ffff (sides, insulation, offset, length).');
+    return fail('För få fält. Förväntade KS-1-bbbb-cccc-d-eeee-ffff (sidor, isolering, fall, längd).');
   }
 
   const [a, width, height, d, offset, length] = nums;
   const rest = nums.slice(6);
 
-  if (a !== 1) warnings.push(`The first field is always 1 for S-bends (got ${a}).`);
-  if (width <= 0 || height <= 0) return fail('Dimensions must be greater than 0.');
-  if (length <= 0) return fail('Length ffff must be greater than 0.');
-  if (offset < 0) return fail('Offset eeee can\'t be negative.');
-  if (length >= MAX_LENGTH) warnings.push(`Length ffff must be under ${MAX_LENGTH} mm according to the datasheet.`);
-  if (offset === 0) warnings.push('Offset eeee is 0 – this is a straight piece.');
+  if (a !== 1) warnings.push(`Första fältet är alltid 1 för S-böjar (fick ${a}).`);
+  if (width <= 0 || height <= 0) return fail('Måtten måste vara större än 0.');
+  if (length <= 0) return fail('Längden ffff måste vara större än 0.');
+  if (offset < 0) return fail('Fallet eeee kan inte vara negativt.');
+  if (length >= MAX_LENGTH) warnings.push(`Längden ffff måste vara under ${MAX_LENGTH} mm enligt produktbladet.`);
+  if (offset === 0) warnings.push('Fallet eeee är 0 – det här är en rak bit.');
 
   const insulation = parseInsulation(d);
   if (typeof insulation === 'string') return fail(insulation);
-  checkInsideFit(insulation, width, height, warnings, 'S-bend');
+  checkInsideFit(insulation, width, height, warnings, 'S-böj');
 
   let surface: SurfaceSpec | null = null;
   if (insulation.needsSurface) {
@@ -71,7 +71,7 @@ export function parseKS(input: string): ParseResult<SBend> {
     if (typeof sf === 'string') return fail(sf);
     surface = sf;
   }
-  if (rest.length > 0) warnings.push(`Extra field(s) ignored: ${rest.join('-')}`);
+  if (rest.length > 0) warnings.push(`Extra fält ignoreras: ${rest.join('-')}`);
 
   const ends = parseEnds(endPart, warnings);
   if (typeof ends === 'string') return fail(ends);
@@ -80,18 +80,18 @@ export function parseKS(input: string): ParseResult<SBend> {
 
   const angle = wallAngle(product);
   if (angle > 45) {
-    warnings.push(`Steep S-bend: the walls are at ${angle.toFixed(0)}°. Check the minimum length ffff in the datasheet's dimensioning chart.`);
+    warnings.push(`Brant S-böj: väggarna lutar ${angle.toFixed(0)}°. Kontrollera minsta längd ffff i produktbladets dimensioneringsdiagram.`);
   }
   return { ok: true, product };
 }
 
 export function describeKS(p: SBend): SpecRow[] {
   return [
-    { label: 'Product', value: 'S-bend', token: 'KS' },
-    { label: 'Opening', value: `${p.width} × ${p.height} mm` },
-    { label: 'Offset', value: `${p.offset} mm (on the bbbb side)`, token: 'eeee' },
-    { label: 'Length', value: `${p.length} mm`, token: 'ffff' },
-    { label: 'Wall angle', value: `${wallAngle(p).toFixed(1)}°` },
+    { label: 'Produkt', value: 'S-böj', token: 'KS' },
+    { label: 'Öppning', value: `${p.width} × ${p.height} mm` },
+    { label: 'Fall', value: `${p.offset} mm (på bbbb-sidan)`, token: 'eeee' },
+    { label: 'Längd', value: `${p.length} mm`, token: 'ffff' },
+    { label: 'Väggvinkel', value: `${wallAngle(p).toFixed(1)}°` },
     ...commonRows(p),
   ];
 }

@@ -189,9 +189,9 @@ export function buildTee(p: Tee, mat: Materials): DuctModel {
     obj.position.set(x, H + overhang + 40, z);
     root.add(obj);
   };
-  tag('End 1', W + overhang + 40, 0);
-  tag('End 2', W + overhang + 40, L);
-  tag('End 3 · branch', xBranch - overhang - 40, leg1 + e / 2);
+  tag('Ände 1', W + overhang + 40, 0);
+  tag('Ände 2', W + overhang + 40, L);
+  tag('Ände 3 · avstick', xBranch - overhang - 40, leg1 + e / 2);
 
   // Dimensions
   const dims = new THREE.Group();
@@ -216,9 +216,9 @@ export function buildTee(p: Tee, mat: Materials): DuctModel {
     // From the branch side, so the branch and end 2 are both in view
     iso: new THREE.Vector3(-1.1, 0.9, 1.2).normalize(),
     ports: [
-      rectPort('end1', 'End 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), b, h, p.ends[0]),
-      rectPort('end2', 'End 2', new THREE.Vector3(0, 0, L), new THREE.Vector3(0, 0, 1), b, h, p.ends[1]),
-      rectPort('end3', 'End 3 · branch', new THREE.Vector3(xBranch, 0, leg1 + e / 2), new THREE.Vector3(-1, 0, 0), e, h, p.branchEnd),
+      rectPort('end1', 'Ände 1', new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1), b, h, p.ends[0]),
+      rectPort('end2', 'Ände 2', new THREE.Vector3(0, 0, L), new THREE.Vector3(0, 0, 1), b, h, p.ends[1]),
+      rectPort('end3', 'Ände 3 · avstick', new THREE.Vector3(xBranch, 0, leg1 + e / 2), new THREE.Vector3(-1, 0, 0), e, h, p.branchEnd),
     ],
   };
 }

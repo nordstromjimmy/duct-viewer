@@ -192,7 +192,7 @@ export function buildRoomGroup(room: Room): THREE.Group {
     el.className = 'wall-len';
     const f = document.createElement('span');
     f.className = 'dim-field';
-    f.textContent = `W${i + 1}`;
+    f.textContent = `V${i + 1}`;
     el.append(f, `${Math.round(s.length)}`);
     const lbl = new CSS2DObject(el);
     const inset = room.closed ? -250 : 0;

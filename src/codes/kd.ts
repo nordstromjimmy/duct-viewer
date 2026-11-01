@@ -32,11 +32,11 @@ export const STANDARD_LENGTH = 500;
  * We always draw the upper/left one.
  */
 export const PLACEMENTS: Record<Placement, { label: string; col: -1 | 0 | 1; row: 0 | 1 }> = {
-  1: { label: 'Corner – top left (or bottom right)', col: -1, row: 1 },
-  2: { label: 'Flush top (or bottom), centred sideways', col: 0, row: 1 },
-  3: { label: 'Corner – top right (or bottom left)', col: 1, row: 1 },
-  4: { label: 'Flush left (or right), centred vertically', col: -1, row: 0 },
-  5: { label: 'Centred (standard)', col: 0, row: 0 },
+  1: { label: 'Hörn – uppe till vänster (eller nere till höger)', col: -1, row: 1 },
+  2: { label: 'Jäms med överkant (eller underkant), centrerad i sidled', col: 0, row: 1 },
+  3: { label: 'Hörn – uppe till höger (eller nere till vänster)', col: 1, row: 1 },
+  4: { label: 'Jäms med vänster (eller höger) sida, centrerad i höjdled', col: -1, row: 0 },
+  5: { label: 'Centrerad (standard)', col: 0, row: 0 },
 };
 
 /**
@@ -67,35 +67,35 @@ const fail = (error: string): ParseResult<Transition> => ({ ok: false, error });
 export function parseKD(input: string): ParseResult<Transition> {
   const s = normalise(input);
   const split = splitCode(s, 'KD');
-  if (!split) return fail('A transition code starts with KD followed by numbers, e.g. KD-5-1500-1000-0-1200-800');
+  if (!split) return fail('En kod för dimensionsförändring börjar med KD följt av siffror, t.ex. KD-5-1500-1000-0-1200-800');
 
   const { nums, endPart } = split;
   const warnings: string[] = [];
   if (nums.length < 6) {
-    return fail('Too few fields. Expected KD-a-bbbb-cccc-d-eeee-ffff (placement, big end, insulation, small end).');
+    return fail('För få fält. Förväntade KD-a-bbbb-cccc-d-eeee-ffff (placering, stor ände, isolering, liten ände).');
   }
 
   const [a, width, height, d, smallWidth, smallHeight] = nums;
   const rest = nums.slice(6);
 
   // a – placement
-  if (a === 0) return fail('Placement 0 is a special version made from a sketch – it can\'t be drawn from the code alone.');
-  if (!(a in PLACEMENTS)) return fail(`Unknown placement "${a}". Use 1–5 (5 = centred, standard).`);
+  if (a === 0) return fail('Placering 0 är ett specialutförande enligt skiss – den kan inte ritas bara utifrån koden.');
+  if (!(a in PLACEMENTS)) return fail(`Okänd placering "${a}". Använd 1–5 (5 = centrerad, standard).`);
   const placement = a as Placement;
 
   // Dimensions
-  if ([width, height, smallWidth, smallHeight].some((v) => v <= 0)) return fail('Dimensions must be greater than 0.');
+  if ([width, height, smallWidth, smallHeight].some((v) => v <= 0)) return fail('Måtten måste vara större än 0.');
   if (smallWidth >= width && smallHeight >= height) {
-    warnings.push('The small end (eeee x ffff) isn\'t smaller than the big end (bbbb x cccc).');
+    warnings.push('Den lilla änden (eeee x ffff) är inte mindre än den stora (bbbb x cccc).');
   } else if (smallWidth > width || smallHeight > height) {
-    warnings.push('The small end is larger than the big end in one direction.');
+    warnings.push('Den lilla änden är större än den stora i en riktning.');
   }
-  if (smallWidth === width && smallHeight === height) warnings.push('Both ends are the same size – this is a straight piece.');
+  if (smallWidth === width && smallHeight === height) warnings.push('Båda ändarna är lika stora – det här är en rak bit.');
 
   // d – insulation
   const insulation = parseInsulation(d);
   if (typeof insulation === 'string') return fail(insulation);
-  checkInsideFit(insulation, smallWidth, smallHeight, warnings, 'small end');
+  checkInsideFit(insulation, smallWidth, smallHeight, warnings, 'liten ände');
 
   // gggg – optional length, h – surface layer for insulation 7/8
   let length = STANDARD_LENGTH;
@@ -108,8 +108,8 @@ export function parseKD(input: string): ParseResult<Transition> {
   } else if (rest.length >= 1) {
     length = rest.shift()!;
   }
-  if (length <= 0) return fail('Length must be greater than 0.');
-  if (rest.length > 0) warnings.push(`Extra field(s) ignored: ${rest.join('-')}`);
+  if (length <= 0) return fail('Längden måste vara större än 0.');
+  if (rest.length > 0) warnings.push(`Extra fält ignoreras: ${rest.join('-')}`);
 
   const ends = parseEnds(endPart, warnings);
   if (typeof ends === 'string') return fail(ends);
@@ -130,19 +130,19 @@ export function parseKD(input: string): ParseResult<Transition> {
   };
 
   const angle = steepestWall(product);
-  if (angle > 45) warnings.push(`Steep transition: one wall is at ${angle.toFixed(0)}° to the duct axis.`);
+  if (angle > 45) warnings.push(`Brant övergång: en vägg lutar ${angle.toFixed(0)}° mot kanalens axel.`);
 
   return { ok: true, product };
 }
 
 export function describeKD(p: Transition): SpecRow[] {
   return [
-    { label: 'Product', value: 'Transition', token: 'KD' },
-    { label: 'Placement', value: PLACEMENTS[p.placement].label, token: `a=${p.placement}` },
-    { label: 'Big end', value: `${p.width} × ${p.height} mm` },
-    { label: 'Small end', value: `${p.smallWidth} × ${p.smallHeight} mm` },
-    { label: 'Length', value: `${p.length} mm${p.length === STANDARD_LENGTH ? ' (standard)' : ''}` },
-    { label: 'Steepest wall', value: `${steepestWall(p).toFixed(1)}°` },
-    ...commonRows(p, ['End 1 (big)', 'End 2 (small)']),
+    { label: 'Produkt', value: 'Dimensionsförändring', token: 'KD' },
+    { label: 'Placering', value: PLACEMENTS[p.placement].label, token: `a=${p.placement}` },
+    { label: 'Stor ände', value: `${p.width} × ${p.height} mm` },
+    { label: 'Liten ände', value: `${p.smallWidth} × ${p.smallHeight} mm` },
+    { label: 'Längd', value: `${p.length} mm${p.length === STANDARD_LENGTH ? ' (standard)' : ''}` },
+    { label: 'Brantaste vägg', value: `${steepestWall(p).toFixed(1)}°` },
+    ...commonRows(p, ['Ände 1 (stor)', 'Ände 2 (liten)']),
   ];
 }
