@@ -1,8 +1,11 @@
-// The order list: every code in the assembly, grouped, with detail numbers – ready to paste
+// The order list: every code in the project's rooms, grouped, with detail numbers – ready to paste
 // into Crenna's order form ("Beställning": detalj nr – antal – beställningskod – ändutförande).
+//
+// Detail numbers are worked out for the whole project, so a code has the same number in every
+// room. `roomOrder` then picks out one room's share.
 
 import { parseCode, summary } from '../codes';
-import type { Project } from '../store';
+import type { AsmPart } from '../store';
 import { canCut } from './layout';
 
 /** Products ordered from Crenna. Units, silencers and dampers are generic and listed apart. */
@@ -21,6 +24,10 @@ export interface OrderLine {
   partIds: string[];
   /** Planned site cuts on parts of this line, mm. */
   cuts: number[];
+  /** How many of this line are in each room (by room index). */
+  rooms: number[];
+  /** Room index of each site cut (same order as `cuts`). */
+  cutRooms: number[];
 }
 
 export interface OtherLine {
@@ -28,6 +35,13 @@ export interface OtherLine {
   name: string;
   count: number;
   partIds: string[];
+  rooms: number[];
+}
+
+/** What the order list is built from: the project's detail numbers and its rooms. */
+export interface OrderSource {
+  details?: Record<string, number>;
+  rooms: { name: string; assembly: AsmPart[] }[];
 }
 
 export interface Order {
@@ -45,40 +59,49 @@ export function splitOrderCode(code: string): { base: string; ends: string } {
   return m ? { base: m[1].replace(/\s+/g, ''), ends: m[2].trim() } : { base: code, ends: '' };
 }
 
-export function buildOrder(project: Project): Order {
+export function buildOrder(source: OrderSource): Order {
   const lines: OrderLine[] = [];
   const other: OtherLine[] = [];
   const byCode = new Map<string, OrderLine>();
   const otherByCode = new Map<string, OtherLine>();
+  const roomCount = source.rooms.length;
 
-  // Group in the order parts were added, so automatic numbers follow the build order
-  for (const a of project.assembly) {
-    const parsed = parseCode(a.code);
-    if (!parsed.ok) continue;
-    const p = parsed.product;
-    if (!CRENNA.has(p.kind)) {
-      const o = otherByCode.get(p.code) ?? { code: p.code, name: summary(p), count: 0, partIds: [] };
-      if (!otherByCode.has(p.code)) {
-        otherByCode.set(p.code, o);
-        other.push(o);
+  // Group room by room, in the order parts were added, so automatic numbers follow the build order
+  source.rooms.forEach((room, ri) => {
+    for (const a of room.assembly) {
+      const parsed = parseCode(a.code);
+      if (!parsed.ok) continue;
+      const p = parsed.product;
+      if (!CRENNA.has(p.kind)) {
+        let o = otherByCode.get(p.code);
+        if (!o) {
+          o = { code: p.code, name: summary(p), count: 0, partIds: [], rooms: new Array(roomCount).fill(0) };
+          otherByCode.set(p.code, o);
+          other.push(o);
+        }
+        o.count++;
+        o.rooms[ri]++;
+        o.partIds.push(a.id);
+        continue;
       }
-      o.count++;
-      o.partIds.push(a.id);
-      continue;
+      let line = byCode.get(p.code);
+      if (!line) {
+        line = { detail: 0, manual: false, code: p.code, ...splitOrderCode(p.code), count: 0, partIds: [], cuts: [], rooms: new Array(roomCount).fill(0), cutRooms: [] };
+        byCode.set(p.code, line);
+        lines.push(line);
+      }
+      line.count++;
+      line.rooms[ri]++;
+      line.partIds.push(a.id);
+      if (a.cut && canCut(p) && p.kind === 'KK' && a.cut < p.length) {
+        line.cuts.push(a.cut);
+        line.cutRooms.push(ri);
+      }
     }
-    let line = byCode.get(p.code);
-    if (!line) {
-      line = { detail: 0, manual: false, code: p.code, ...splitOrderCode(p.code), count: 0, partIds: [], cuts: [] };
-      byCode.set(p.code, line);
-      lines.push(line);
-    }
-    line.count++;
-    line.partIds.push(a.id);
-    if (a.cut && canCut(p) && p.kind === 'KK' && a.cut < p.length) line.cuts.push(a.cut);
-  }
+  });
 
   // Detail numbers: hand-set ones first, then 1, 2, 3 … skipping numbers already taken
-  const details = project.details ?? {};
+  const details = source.details ?? {};
   const taken = new Set<number>();
   for (const l of lines) {
     const n = details[l.code];
@@ -105,6 +128,35 @@ export function buildOrder(project: Project): Order {
   for (const l of lines) for (const id of l.partIds) detailOf.set(id, l.detail);
 
   return { lines, other, duplicates, detailOf };
+}
+
+/** One room's share of the project order (same detail numbers, that room's quantities). */
+export function roomOrder(order: Order, room: number): Order {
+  const lines = order.lines
+    .filter((l) => l.rooms[room] > 0)
+    .map((l) => {
+      const keep = l.cutRooms.map((r) => r === room);
+      return { ...l, count: l.rooms[room], cuts: l.cuts.filter((_, i) => keep[i]), cutRooms: l.cutRooms.filter((_, i) => keep[i]) };
+    });
+  const other = order.other.filter((o) => o.rooms[room] > 0).map((o) => ({ ...o, count: o.rooms[room] }));
+  const used = new Set(lines.map((l) => l.detail));
+  return { lines, other, duplicates: order.duplicates.filter((d) => used.has(d)), detailOf: order.detailOf };
+}
+
+/** The whole project's order, then which room each part goes to. */
+export function projectOrderText(order: Order, roomNames: string[]): string {
+  let out = orderText(order);
+  if (roomNames.length < 2) return out;
+  out += '\nFördelning per rum:\n';
+  roomNames.forEach((name, ri) => {
+    const lines = order.lines.filter((l) => l.rooms[ri] > 0);
+    const other = order.other.filter((o) => o.rooms[ri] > 0);
+    if (!lines.length && !other.length) return;
+    out += `\n${name}:\n`;
+    for (const l of lines) out += `  Detalj ${l.detail}: ${l.rooms[ri]} st\n`;
+    for (const o of other) out += `  ${o.rooms[ri]} st - ${o.code}\n`;
+  });
+  return out;
 }
 
 /** One order line as text: "1 - 2 - KK-3-800-500-0-1000 - PG/L". */

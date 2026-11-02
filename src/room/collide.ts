@@ -319,3 +319,44 @@ export function assemblyCorners(lay: Layout): THREE.Vector3[] {
   }
   return out;
 }
+
+/** Convex outline of a set of plan points (Andrew's monotone chain). */
+function hull(pts: [number, number][]): [number, number][] {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cross = (o: [number, number], a: [number, number], b: [number, number]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: [number, number][] = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper: [number, number][] = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop();
+    upper.push(q);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** Each part seen from above: one outline per mesh (x, z), and the part's centre. */
+export function partOutlines(lay: Layout): { partId: string; outlines: [number, number][][]; centre: [number, number] }[] {
+  return lay.parts.map((part) => {
+    const outlines: [number, number][][] = [];
+    for (const s of partShapes(part)) {
+      const pos = s.mesh.geometry.getAttribute('position');
+      const v = new THREE.Vector3();
+      const pts: [number, number][] = [];
+      // Thin out very detailed meshes – the outline doesn't need every vertex
+      const step = Math.max(1, Math.floor(pos.count / 4000));
+      for (let k = 0; k < pos.count; k += step) {
+        v.fromBufferAttribute(pos, k).applyMatrix4(s.matrix);
+        pts.push([Math.round(v.x), Math.round(v.z)]);
+      }
+      const h = hull(pts);
+      if (h.length >= 3) outlines.push(h);
+    }
+    const c = part.model.bounds.getCenter(new THREE.Vector3()).applyMatrix4(part.matrix);
+    return { partId: part.asm.id, outlines, centre: [c.x, c.z] };
+  });
+}

@@ -7,10 +7,11 @@ import { portSize, type PortId } from '../geometry/ports';
 import { newId, type AsmPart, type Store } from '../store';
 import type { Viewer } from '../viewer';
 import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, portsOf, type Layout } from './layout';
-import { buildOrder, lineText, orderText as orderTextOf, type Order } from './order';
+import { buildOrder, lineText, orderText as orderTextOf, projectOrderText, roomOrder, type Order } from './order';
 import { buildAssemblyScene, type PortRef } from './scene';
 import { findCollisions, type Collision } from '../room/collide';
 import { buildRoomGroup, runName } from '../room/model';
+import { buildMeasureGroup } from '../measure';
 
 export interface AssemblyUi {
   hint: HTMLElement;
@@ -41,8 +42,12 @@ export class AssemblyController {
   get partCount(): number {
     return this.parts.length;
   }
-  /** The order list for the current assembly. */
+  /** The order list for the current room (detail numbers shared with the whole project). */
   order: Order | null = null;
+  /** The order list for the whole project. */
+  projectOrder: Order | null = null;
+  /** What the order list table shows. */
+  orderScope: 'room' | 'project' = 'room';
   /** Parts hitting the room's walls or roof. */
   collisions: Collision[] = [];
   /** True in the Room tab: no end markers or selection, the room is being drawn. */
@@ -85,7 +90,10 @@ export class AssemblyController {
       this.target = last ? { partId: last.partId, portId: last.port.id } : null;
     }
 
-    this.order = buildOrder(this.store.project);
+    const job = this.store.job;
+    this.projectOrder = buildOrder(job);
+    this.order = roomOrder(this.projectOrder, Math.max(0, job.rooms.indexOf(this.store.activeRoom)));
+    if (job.rooms.length < 2) this.orderScope = 'room';
     const room = this.store.project.room;
     this.collisions = room ? findCollisions(room, lay) : [];
     const scene = buildAssemblyScene(
@@ -107,6 +115,8 @@ export class AssemblyController {
       scene.model.root.add(g);
       scene.model.bounds.union(new THREE.Box3().setFromObject(g));
     }
+    // Saved measurements (not counted in the view's bounds)
+    scene.model.root.add(buildMeasureGroup(this.store));
     // Nothing built yet (e.g. drawing a room first): frame a 6 × 6 m floor so the camera has a scale
     if (scene.model.bounds.isEmpty()) scene.model.bounds.set(new THREE.Vector3(-3000, 0, -3000), new THREE.Vector3(3000, 0, 3000));
     this.viewer.setModel(scene.model, { resetRotation: true });
@@ -152,7 +162,13 @@ export class AssemblyController {
   /** The order list table: detail no. (editable) – qty – code – end types. */
   private renderOrder() {
     const box = this.ui.order;
-    const order = this.order;
+    const multi = this.store.job.rooms.length > 1;
+    const scope = box.querySelector<HTMLElement>('.order-scope');
+    if (scope) {
+      scope.hidden = !multi;
+      scope.querySelectorAll<HTMLButtonElement>('[data-scope]').forEach((b) => b.classList.toggle('is-active', b.dataset.scope === this.orderScope));
+    }
+    const order = this.orderScope === 'project' ? this.projectOrder : this.order;
     const table = box.querySelector<HTMLTableSectionElement>('tbody')!;
     const note = box.querySelector<HTMLElement>('.order-note')!;
     const empty = !order || (order.lines.length === 0 && order.other.length === 0);
@@ -236,6 +252,7 @@ export class AssemblyController {
 
   /** Text for the order form, ready to paste or save. */
   orderText(): string {
+    if (this.orderScope === 'project' && this.projectOrder) return projectOrderText(this.projectOrder, this.store.job.rooms.map((r) => r.name));
     return this.order ? orderTextOf(this.order) : '';
   }
 
@@ -289,7 +306,7 @@ export class AssemblyController {
 
     const head = el('div', 'sel-head');
     head.append(el('span', 'tok', laid.product.kind), el('strong', '', summary(laid.product)));
-    box.replaceChildren(el('h2', '', 'Vald del'), head, el('div', 'sel-code', asm.code), el('p', jointCls, joint));
+    box.replaceChildren(el('h2', '', 'Vald del'), head, this.codeForm(asm), el('p', jointCls, joint));
     const line = this.order?.lines.find((l) => l.partIds.includes(asm.id));
     if (line) {
       const row = el('div', 'sel-detail');
@@ -361,6 +378,64 @@ export class AssemblyController {
       this.setCut(asm.id, v >= ordered ? undefined : v);
     });
     return wrap;
+  }
+
+  /** The selected part's code as an editable field: change it and press Enter (or Ändra). */
+  private codeForm(asm: AsmPart): HTMLFormElement {
+    const form = document.createElement('form');
+    form.className = 'sel-codeform';
+    form.autocomplete = 'off';
+    const input = document.createElement('input');
+    input.name = 'code';
+    input.value = asm.code;
+    input.spellcheck = false;
+    input.setAttribute('aria-label', 'Delens kod');
+    input.title = 'Ändra koden och tryck Enter – delarna efter följer med';
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.textContent = 'Ändra';
+    const msg = document.createElement('p');
+    msg.className = 'sel-codeform__msg';
+    form.append(input, btn, msg);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const err = this.setCode(asm.id, input.value);
+      if (err) msg.textContent = err;
+    });
+    input.addEventListener('input', () => (msg.textContent = ''));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        input.value = asm.code;
+        msg.textContent = '';
+      }
+      e.stopPropagation(); // Backspace/Delete edit the text, not the assembly
+    });
+    return form;
+  }
+
+  /**
+   * Change a placed part's code. Parts attached after it stay on the same ends (an end that no
+   * longer exists shows a warning). Returns an error message, or null.
+   */
+  setCode(id: string, code: string): string | null {
+    const a = this.find(id);
+    if (!a) return null;
+    const parsed = parseCode(code);
+    if (!parsed.ok) return parsed.error;
+    const product = parsed.product;
+    if (product.code === a.code) return null;
+    const ports = portsOf(product, this.mat);
+    const own = ports.find((p) => p.id === a.via) ? a.via : ports[0]?.id;
+    if (!own) return 'Den delen har inga ändar att fästa med.';
+    this.store.update((p) => {
+      const x = p.assembly.find((y) => y.id === id)!;
+      x.code = product.code;
+      x.via = own;
+      // A planned cut only makes sense if the new part can still be cut that short
+      if (x.cut !== undefined && (!canCut(product) || product.kind !== 'KK' || x.cut >= product.length)) delete x.cut;
+    });
+    this.render();
+    return null;
   }
 
   /** Set (or clear, with undefined) the site cut of a part. */

@@ -50,8 +50,8 @@ export class Viewer {
   /** Called with the clicked object (or null for empty space) when the user clicks the view. */
   onPick: ((hit: THREE.Object3D | null) => void) | null = null;
   /** Mouse ray hooks, used by the room drawing tool. */
-  onPointerMove: ((ray: THREE.Ray) => void) | null = null;
-  onClickRay: ((ray: THREE.Ray) => void) | null = null;
+  onPointerMove: ((ray: THREE.Ray, e: PointerEvent) => void) | null = null;
+  onClickRay: ((ray: THREE.Ray, e: PointerEvent) => void) | null = null;
   onDoubleClick: ((ray: THREE.Ray) => void) | null = null;
   /** Dragging something in the scene instead of orbiting: return true from onDragStart to take the drag. */
   onDragStart: ((ray: THREE.Ray, hit: THREE.Object3D | null) => boolean) | null = null;
@@ -138,12 +138,12 @@ export class Viewer {
     this.renderer.domElement.addEventListener('pointerup', (e) => {
       if (e.button !== 0) return;
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return; // that was a drag
-      this.onClickRay?.(this.rayAt(e.clientX, e.clientY));
+      this.onClickRay?.(this.rayAt(e.clientX, e.clientY), e);
       this.onPick?.(this.pick(e.clientX, e.clientY));
     });
     this.renderer.domElement.addEventListener('pointermove', (e) => {
       if (this.dragging) this.onDragMove?.(this.rayAt(e.clientX, e.clientY));
-      else this.onPointerMove?.(this.rayAt(e.clientX, e.clientY));
+      else this.onPointerMove?.(this.rayAt(e.clientX, e.clientY), e);
     });
     this.renderer.domElement.addEventListener('dblclick', (e) => this.onDoubleClick?.(this.rayAt(e.clientX, e.clientY)));
     this.scene.add(this.overlay);
@@ -445,6 +445,11 @@ export class Viewer {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.labelRenderer.setSize(w, h);
+  }
+
+  /** Draw a frame right now (e.g. before taking a picture). */
+  renderNow() {
+    this.render();
   }
 
   private render() {

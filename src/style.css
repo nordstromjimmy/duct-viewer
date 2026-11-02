@@ -33,7 +33,7 @@ button { font: inherit; cursor: pointer; }
 
 .app {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 440px 1fr;
   height: 100vh;
 }
 
@@ -553,7 +553,9 @@ button.danger { color: var(--error); }
 .sel-cut--hint { font-size: 12px; line-height: 1.45; color: var(--ink-3); }
 
 /* ---------- Order list ---------- */
-.asm-order__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.asm-order__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
+.asm-order__actions button { white-space: nowrap; }
+.order-table .order-code { white-space: nowrap; }
 .asm-order__head h2 {
   margin: 0;
   font-size: 11.5px;
@@ -745,3 +747,192 @@ body.room-drawing .viewport canvas { cursor: crosshair; }
 .wall-len.opening-label { color: #fff; background: #5c5647; border-color: #5c5647; }
 .wall-len.run-label { font-weight: 500; }
 body.room-moving .viewport canvas { cursor: grab; }
+
+/* ---------- Project and room bar ---------- */
+.project-bar {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.pb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pb-head label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pb-row + .pb-head { margin-top: 4px; }
+.pb-row { display: flex; align-items: center; gap: 4px; }
+.pb-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--bg, #faf9f6);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.pb-row .icon,
+.pb-file button {
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.pb-row .icon { width: 28px; padding: 4px 0; font-size: 13px; }
+.pb-row .icon:hover:not(:disabled),
+.pb-file button:hover { color: var(--ink); border-color: var(--ink-3); }
+.pb-row .icon:disabled { opacity: 0.4; cursor: default; }
+.pb-file { display: flex; gap: 4px; }
+.project-bar .code-error:empty { display: none; }
+
+/* Small two-way switch (order list: room / project) */
+.seg-mini { display: flex; margin-right: 4px; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.asm-order__actions .seg-mini button { border: 0; border-radius: 0; }
+.asm-order__actions .seg-mini button.is-active { color: #fff; background: var(--ink); }
+.seg-mini[hidden] { display: none; }
+
+/* Editable code of the selected part, and of a saved part */
+.sel-codeform { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.sel-codeform input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.sel-codeform input:focus { border-color: var(--accent); outline: none; }
+.sel-codeform button {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.sel-codeform button:hover { border-color: var(--ink-3); }
+.sel-codeform__msg { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--error); }
+.sel-codeform__msg:empty { display: none; }
+.part-item.is-editing .part-item__text input {
+  width: 100%;
+  padding: 2px 4px;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.part-item.is-editing .part-item__codefield { margin-top: 3px; font-family: var(--mono) !important; font-size: 11.5px !important; }
+
+/* ---------- Measuring tool ---------- */
+.measure-label {
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #0b7285;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.measure-label .dim-field { margin-right: 5px; font-weight: 500; opacity: 0.75; }
+.measure-label--live { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); }
+.measure-snap {
+  padding: 1px 6px;
+  font-size: 11px;
+  color: #0b7285;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #0b7285;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+body.measuring .viewport canvas { cursor: crosshair; }
+#measure.is-active { color: #fff; background: #0b7285; border-color: #0b7285; }
+.measure-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 44px;
+  z-index: 5;
+  width: 290px;
+  max-height: 45%;
+  overflow-y: auto;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+.measure-panel[hidden] { display: none; }
+.measure-panel__head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.measure-panel__head strong { flex: 1; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.measure-panel button {
+  padding: 2px 8px;
+  font-size: 11.5px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.measure-panel button:hover { border-color: var(--ink-3); }
+.measure-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); font-family: var(--mono); }
+.measure-row b { color: #0b7285; margin-right: 4px; }
+.measure-row small { display: block; margin-top: 1px; font-family: var(--sans, inherit); font-size: 11px; color: var(--ink-3); }
+.measure-hint { margin: 6px 0 0; font-size: 11.5px; color: var(--ink-3); }
+
+/* ---------- Print / PDF job sheet ---------- */
+.print-root { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { height: auto; overflow: visible; background: #fff; }
+  .app { display: none !important; }
+  .print-root { display: block; color: #1d1b16; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 10pt; }
+}
+.pr-page { break-after: page; }
+.pr-page:last-child { break-after: auto; }
+.pr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1.5pt solid #1d1b16; }
+.pr-project { font-size: 9pt; color: #6b665b; letter-spacing: 0.04em; text-transform: uppercase; }
+.pr-head h1 { margin: 2px 0 0; font-size: 16pt; }
+.pr-date { font-size: 9pt; color: #6b665b; }
+.pr-figs { display: grid; gap: 6mm; }
+.pr-figs figure { margin: 0; break-inside: avoid; }
+.pr-figs figcaption { margin-bottom: 2mm; font-size: 8.5pt; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #6b665b; }
+.pr-plan svg { display: block; box-sizing: border-box; width: 100%; max-height: 125mm; border: 0.5pt solid #d7d2c6; }
+.pr-3d img { display: block; box-sizing: border-box; max-width: 100%; max-height: 112mm; margin: 0 auto; border: 0.5pt solid #d7d2c6; }
+.pr-lists h2 { margin: 6mm 0 2mm; font-size: 10.5pt; break-after: avoid; }
+.pr-note { margin: 1mm 0; font-size: 8.5pt; color: #4a463d; }
+.pr-table { width: 100%; border-collapse: collapse; font-size: 9pt; break-inside: auto; }
+.pr-table th { padding: 1.2mm 2mm; font-size: 7.5pt; text-align: left; letter-spacing: 0.04em; text-transform: uppercase; color: #6b665b; border-bottom: 0.75pt solid #1d1b16; }
+.pr-table td { padding: 1.2mm 2mm; border-bottom: 0.5pt solid #e3dfd5; vertical-align: top; }
+.pr-table tr { break-inside: avoid; }
+.pr-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+/* Plan drawing */
+.pl { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+.pl-floor { fill: #faf8f3; }
+.pl-wall { fill: #c9c3b6; stroke: #5c5647; }
+.pl-wall-len { fill: #3d392f; font-weight: 600; }
+.pl-hole { fill: #fff; stroke: #c92a2a; }
+.pl-roofhole { fill: none; stroke: #c92a2a; }
+.pl-hole-txt { fill: #c92a2a; font-weight: 600; }
+.pl-run-txt { fill: #495057; }
+.pl-part { fill: rgba(232, 89, 12, 0.12); stroke: #b8460a; stroke-linejoin: round; }
+.pl-badge { fill: #1d1b16; }
+.pl-badge-txt { fill: #fff; font-weight: 600; }
+.pl-measure { stroke: #0b7285; }
+.pl-measure-txt { fill: #0b7285; font-weight: 600; }
+.pl-scale { stroke: #1d1b16; }
+.pl-scale-txt { fill: #1d1b16; }

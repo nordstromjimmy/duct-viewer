@@ -512,6 +512,7 @@ export class RoomController {
   private clearPreview() {
     const o = this.viewer.overlay;
     for (const child of [...o.children]) {
+      if (child.name === 'measure-live') continue; // the measuring tool's own preview
       child.removeFromParent();
       child.traverse((c) => {
         if ((c as THREE.Mesh).geometry) (c as THREE.Mesh).geometry.dispose();

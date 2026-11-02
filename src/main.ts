@@ -1,6 +1,9 @@
 import './style.css';
 import { AssemblyController } from './assembly/controller';
 import { RoomController } from './room/controller';
+import { MeasureController } from './measure';
+import { buildPrint, type RoomSheet } from './print';
+import { partOutlines } from './room/collide';
 import { describe, parseCode, summary } from './codes';
 import type { Product } from './codes/types';
 import { buildModel } from './geometry';
@@ -65,6 +68,7 @@ const asm = new AssemblyController(store, viewer, materials, {
     applyToggles();
     showRotation();
     if (mode === 'room') room.render();
+    measure.render();
   },
 });
 
@@ -73,6 +77,27 @@ const room = new RoomController(store, viewer, asm, {
   panel: $('#room-panel'),
   redraw: (fit) => asm.render(fit),
 });
+
+// Measuring tool (Assembly and Room tabs)
+const measureBtn = $<HTMLButtonElement>('#measure');
+const measure = new MeasureController(store, viewer, asm, {
+  panel: $('#measure-panel'),
+  button: measureBtn,
+  redraw: () => asm.render(),
+  onToggle: (on) => {
+    if (on && mode === 'room') room.stop();
+    wireViewer();
+  },
+});
+
+// Starting something in the Room tab (drawing, a hole, a pipe…) ends measuring
+$<HTMLElement>('#room-panel').addEventListener(
+  'click',
+  (e) => {
+    if (measure.active && (e.target as HTMLElement).closest('[data-room]')) measure.toggle(false);
+  },
+  { capture: true },
+);
 
 // ---------- Part mode ----------
 
@@ -188,7 +213,7 @@ function renderParts() {
         actions.append(b);
       };
       btn('add', 'Lägg till', 'Lägg till i sammanställningen', 'add');
-      btn('rename', '✎', 'Byt namn', 'icon');
+      btn('rename', '✎', 'Ändra namn och kod', 'icon');
       btn('delete', '×', 'Ta bort från Mina delar', 'icon');
 
       li.append(tok, text, actions);
@@ -197,31 +222,72 @@ function renderParts() {
   );
 }
 
-/** Turn a part's name into a text field; Enter or leaving the field saves, Esc cancels. */
+/**
+ * Edit a saved part's name and code in place. Enter or clicking elsewhere saves, Esc cancels.
+ * Changing the code only affects new copies – parts already placed keep their code.
+ */
 function startRename(li: HTMLElement, id: string) {
   const part = store.project.parts.find((p) => p.id === id);
   const nameEl = li.querySelector<HTMLElement>('.part-item__name');
-  if (!part || !nameEl) return;
-  const field = document.createElement('input');
-  field.value = part.name;
-  nameEl.replaceChildren(field);
-  field.focus();
-  field.select();
+  const codeEl = li.querySelector<HTMLElement>('.part-item__code');
+  if (!part || !nameEl || !codeEl) return;
+  const nameField = document.createElement('input');
+  nameField.value = part.name;
+  nameField.setAttribute('aria-label', 'Namn');
+  const codeField = document.createElement('input');
+  codeField.value = part.code;
+  codeField.className = 'part-item__codefield';
+  codeField.spellcheck = false;
+  codeField.setAttribute('aria-label', 'Kod');
+  nameEl.replaceChildren(nameField);
+  codeEl.replaceChildren(codeField);
+  li.classList.add('is-editing');
+  nameField.focus();
+  nameField.select();
   let done = false;
   const finish = (save: boolean) => {
     if (done) return;
+    if (!save) {
+      done = true;
+      partsMessage.textContent = '';
+      renderParts();
+      return;
+    }
+    const name = nameField.value.trim() || part.name;
+    const parsed = parseCode(codeField.value);
+    if (!parsed.ok) {
+      partsMessage.textContent = parsed.error;
+      codeField.focus();
+      return;
+    }
     done = true;
-    const value = field.value.trim();
-    if (save && value && value !== part.name) store.renamePart(id, value);
+    partsMessage.textContent = '';
+    const code = parsed.product.code;
+    if (code !== part.code && store.project.parts.some((p) => p.id !== id && p.code === code)) {
+      partsMessage.textContent = 'Den koden finns redan i Mina delar.';
+      renderParts();
+      return;
+    }
+    if (code !== part.code) {
+      // A name that was just the old description follows the new code
+      const oldParsed = parseCode(part.code);
+      const autoName = oldParsed.ok && name === summary(oldParsed.product);
+      store.setPartCode(id, code, autoName ? summary(parsed.product) : name);
+    } else if (name !== part.name) store.renamePart(id, name);
     else renderParts();
   };
-  field.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') finish(true);
-    if (e.key === 'Escape') finish(false);
-    e.stopPropagation();
+  for (const field of [nameField, codeField]) {
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') finish(true);
+      if (e.key === 'Escape') finish(false);
+      e.stopPropagation();
+    });
+    field.addEventListener('click', (e) => e.stopPropagation());
+  }
+  // Save when focus leaves the part (not when moving between its two fields)
+  li.addEventListener('focusout', (e) => {
+    if (!li.contains(e.relatedTarget as Node)) setTimeout(() => finish(true), 0);
   });
-  field.addEventListener('blur', () => finish(true));
-  field.addEventListener('click', (e) => e.stopPropagation());
 }
 
 partsList.addEventListener('click', (e) => {
@@ -254,14 +320,152 @@ saveBtn.addEventListener('click', () => {
 store.onChange(() => {
   renderParts();
   updateSaveButton();
+  renderProjectBar();
 });
 
-// Export / import the whole project (My parts + assembly)
+// ---------- Projects and rooms ----------
+
+const jobSelect = $<HTMLSelectElement>('#job-select');
+const roomSelect = $<HTMLSelectElement>('#room-select');
+const projectMessage = $<HTMLParagraphElement>('#project-message');
+
+/** File-name friendly version of a name. */
+const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'projekt';
+
+function renderProjectBar() {
+  const jobs = store.listJobs();
+  if (!jobs.some((j) => j.id === store.job.id)) jobs.unshift({ id: store.job.id, name: store.job.name, updated: Date.now() });
+  jobSelect.replaceChildren(
+    ...jobs.map((j) => {
+      const o = document.createElement('option');
+      o.value = j.id;
+      o.textContent = j.id === store.job.id ? store.job.name : j.name;
+      o.selected = j.id === store.job.id;
+      return o;
+    }),
+  );
+  roomSelect.replaceChildren(
+    ...store.job.rooms.map((r) => {
+      const o = document.createElement('option');
+      o.value = r.id;
+      o.textContent = r.name;
+      o.selected = r.id === store.job.active;
+      return o;
+    }),
+  );
+  $<HTMLButtonElement>('[data-job="room-delete"]').disabled = store.job.rooms.length < 2;
+}
+
+/** After switching project or room: start the views over. */
+function afterSwitch() {
+  room.stop();
+  if (measure.active) measure.toggle(false);
+  projectMessage.textContent = '';
+  if (mode === 'part') {
+    renderParts();
+    $('#asm-count').textContent = store.project.assembly.length ? String(store.project.assembly.length) : '';
+  } else {
+    asm.render(true);
+    if (mode === 'room') room.render();
+  }
+}
+
+jobSelect.addEventListener('change', () => {
+  store.switchJob(jobSelect.value);
+  afterSwitch();
+});
+roomSelect.addEventListener('change', () => {
+  store.switchRoom(roomSelect.value);
+  afterSwitch();
+});
+
+$<HTMLElement>('#project-bar').addEventListener('click', (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-job]')?.dataset.job;
+  if (!act) return;
+  const ask = (q: string, value: string) => window.prompt(q, value)?.trim() || null;
+  switch (act) {
+    case 'new': {
+      const name = ask('Namn på det nya projektet:', 'Nytt projekt');
+      if (name) store.createJob(name);
+      break;
+    }
+    case 'rename': {
+      const name = ask('Nytt namn på projektet:', store.job.name);
+      if (name) store.renameJob(name);
+      return;
+    }
+    case 'delete':
+      if (!window.confirm(`Ta bort projektet ”${store.job.name}” med alla rum? Det går inte att ångra. Exportera först om du vill spara en kopia.`)) return;
+      store.deleteJob();
+      break;
+    case 'room-new': {
+      const name = ask('Namn på det nya rummet:', `Rum ${store.job.rooms.length + 1}`);
+      if (name) store.addRoom(name);
+      break;
+    }
+    case 'room-rename': {
+      const name = ask('Nytt namn på rummet:', store.activeRoom.name);
+      if (name) store.renameRoom(name);
+      return;
+    }
+    case 'room-delete':
+      if (store.job.rooms.length < 2) return;
+      if (!window.confirm(`Ta bort rummet ”${store.activeRoom.name}” med väggar och sammanställning?`)) return;
+      store.removeRoom();
+      break;
+  }
+  afterSwitch();
+});
+
+// Print / PDF: every room is shown once to take its 3D picture, then the pages are built and
+// the browser's print dialog opens ("Save as PDF" gives a PDF).
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+async function printProject() {
+  const printBtn = $<HTMLButtonElement>('#print-project');
+  printBtn.disabled = true;
+  printBtn.textContent = 'Förbereder…';
+  const original = store.job.active;
+  const prevMode = mode;
+  if (measure.active) measure.toggle(false);
+  room.stop();
+  const prevRoomMode = asm.roomMode;
+  asm.roomMode = true; // no selection or end markers in the pictures
+  const sheets: RoomSheet[] = [];
+  try {
+    for (const [index, r] of store.job.rooms.entries()) {
+      store.switchRoom(r.id);
+      asm.render(true);
+      viewer.setLabelsVisible(true);
+      viewer.setRoomVisible(true);
+      viewer.setDimensionsVisible(false);
+      viewer.setView('iso', false);
+      await nextFrame();
+      viewer.renderNow();
+      const hasContent = r.assembly.length > 0 || !!r.room;
+      sheets.push({ room: r, index, picture: hasContent ? viewer.snapshot() : null, outlines: asm.layout ? partOutlines(asm.layout) : [] });
+    }
+    const order = asm.projectOrder;
+    store.switchRoom(original);
+    if (order) buildPrint($('#print-root'), store, sheets, order);
+  } finally {
+    asm.roomMode = prevRoomMode;
+    store.switchRoom(original);
+    setMode(prevMode);
+    printBtn.disabled = false;
+    printBtn.textContent = 'Skriv ut';
+  }
+  // Let the pictures load before the print dialog takes its snapshot of the page
+  await Promise.all([...document.querySelectorAll<HTMLImageElement>('#print-root img')].map((img) => img.decode().catch(() => {})));
+  window.print();
+}
+$<HTMLButtonElement>('#print-project').addEventListener('click', () => void printProject());
+
+// Export / import a whole project (all rooms + My parts)
 $<HTMLButtonElement>('#export-project').addEventListener('click', () => {
   const blob = new Blob([store.exportJson()], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'kanalprojekt.json';
+  a.download = `${slug(store.job.name)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
@@ -271,17 +475,23 @@ importFile.addEventListener('change', async () => {
   const file = importFile.files?.[0];
   importFile.value = '';
   if (!file) return;
-  const err = store.importJson(await file.text());
-  partsMessage.textContent = err ?? '';
-  if (!err && mode === 'assembly') asm.render(true);
+  const err = store.importJson(await file.text(), file.name);
+  projectMessage.textContent = err ?? '';
+  if (!err) afterSwitch();
 });
 
 // ---------- Assembly mode ----------
 
 $<HTMLButtonElement>('#asm-undo').addEventListener('click', undo);
 
-// Order list: copy to clipboard or download as a text file
+// Order list: this room or the whole project; copy to clipboard or download as a text file
 $<HTMLElement>('#asm-order').addEventListener('click', async (e) => {
+  const scope = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-scope]')?.dataset.scope;
+  if (scope === 'room' || scope === 'project') {
+    asm.orderScope = scope;
+    asm.render();
+    return;
+  }
   const act = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-order]')?.dataset.order;
   if (!act) return;
   const text = asm.orderText();
@@ -298,7 +508,8 @@ $<HTMLElement>('#asm-order').addEventListener('click', async (e) => {
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `bestallning-${new Date().toISOString().slice(0, 10)}.txt`;
+    const what = asm.orderScope === 'project' ? store.job.name : `${store.job.name}-${store.activeRoom.name}`;
+    a.download = `bestallning-${slug(what)}-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
@@ -324,14 +535,10 @@ function undo() {
 
 function setMode(next: Mode) {
   if (mode === 'room' && next !== 'room') room.stop();
+  if (next === 'part' && measure.active) measure.toggle(false);
   mode = next;
   asm.roomMode = next === 'room';
-  viewer.onPointerMove = next === 'room' ? (r) => room.onMove(r) : null;
-  viewer.onClickRay = next === 'room' ? (r) => room.onClick(r) : null;
-  viewer.onDoubleClick = next === 'room' ? () => room.onDoubleClick() : null;
-  viewer.onDragStart = next === 'room' ? (r, hit) => room.dragStart(r, hit) : null;
-  viewer.onDragMove = next === 'room' ? (r) => room.dragMove(r) : null;
-  viewer.onDragEnd = next === 'room' ? () => room.dragEnd() : null;
+  measureBtn.hidden = next === 'part';
   panel.dataset.mode = next;
   viewport.classList.toggle('assembly', next !== 'part');
   document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => {
@@ -342,24 +549,42 @@ function setMode(next: Mode) {
   partsMessage.textContent = '';
   syncToggleButtons();
 
+  wireViewer();
   if (next === 'assembly') {
-    viewer.onPick = (hit) => asm.pick(hit);
     stageHint.textContent = 'Klicka på en del för att markera den · Klicka på en orange ände för att välja var nästa del hamnar';
     rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Vrid den valda delen 90° runt skarven' : 'Vrid den valda delen 90° åt andra hållet'));
     asm.render(true);
   } else if (next === 'room') {
-    viewer.onPick = null;
     stageHint.textContent = 'Rita väggar genom att klicka ut hörn på golvet · Dra för att rotera · Scrolla för att zooma';
     asm.render(true);
     room.render();
   } else {
-    viewer.onPick = null;
     stageHint.textContent = 'Dra för att rotera · Högerdra för att panorera · Scrolla för att zooma';
     rotateBtns.forEach((b) => (b.title = b.dataset.rotate === 'left' ? 'Rulla kanalen 90° moturs' : 'Rulla kanalen 90° medurs'));
     current = null; // redraw from scratch
     show(input.value, { updateHash: true });
   }
   renderParts();
+}
+
+/** Who gets clicks and mouse moves in the 3D view: the measuring tool, the Room tab or the assembly. */
+function wireViewer() {
+  const inRoom = mode === 'room';
+  if (measure.active) {
+    viewer.onPick = null;
+    viewer.onPointerMove = (r, e) => measure.onMove(r, e.shiftKey);
+    viewer.onClickRay = (r, e) => measure.onClick(r, e.shiftKey);
+    viewer.onDoubleClick = null;
+    viewer.onDragStart = viewer.onDragMove = viewer.onDragEnd = null;
+    return;
+  }
+  viewer.onPick = mode === 'assembly' ? (hit) => asm.pick(hit) : null;
+  viewer.onPointerMove = inRoom ? (r) => room.onMove(r) : null;
+  viewer.onClickRay = inRoom ? (r) => room.onClick(r) : null;
+  viewer.onDoubleClick = inRoom ? () => room.onDoubleClick() : null;
+  viewer.onDragStart = inRoom ? (r, hit) => room.dragStart(r, hit) : null;
+  viewer.onDragMove = inRoom ? (r) => room.dragMove(r) : null;
+  viewer.onDragEnd = inRoom ? () => room.dragEnd() : null;
 }
 
 document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
@@ -446,6 +671,10 @@ $<HTMLButtonElement>('#snapshot').addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   const typing = (e.target as HTMLElement).closest('input, textarea');
   if (typing) return;
+  if (measure.onKey(e)) {
+    e.preventDefault();
+    return;
+  }
   // Drawing walls: numbers, Enter, Backspace and Esc go to the drawing tool
   if (mode === 'room' && room.onKey(e)) {
     e.preventDefault();
@@ -493,4 +722,5 @@ window.addEventListener('hashchange', () => {
 const initial = decodeURIComponent(location.hash.slice(1)) || 'KK-1-1500-1000-0';
 input.value = initial;
 $('#asm-count').textContent = store.project.assembly.length ? String(store.project.assembly.length) : '';
+renderProjectBar();
 setMode('part');

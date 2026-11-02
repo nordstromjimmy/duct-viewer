@@ -23,6 +23,32 @@
           </div>
         </header>
 
+        <section class="project-bar" id="project-bar">
+          <div class="pb-head">
+            <label for="job-select">Projekt</label>
+            <div class="pb-file">
+              <button type="button" id="export-project" title="Ladda ner hela projektet (alla rum och Mina delar) som en fil">Exportera</button>
+              <button type="button" id="import-project" title="Läs in en projektfil som ett nytt projekt">Importera</button>
+              <button type="button" id="print-project" title="Skriv ut projektet eller spara som PDF: planritning, 3D-vy, beställningslista och håltagning för varje rum">Skriv ut</button>
+              <input type="file" id="import-file" accept=".json,application/json" hidden />
+            </div>
+          </div>
+          <div class="pb-row">
+            <select id="job-select"></select>
+            <button type="button" data-job="new" class="icon" title="Nytt projekt">+</button>
+            <button type="button" data-job="rename" class="icon" title="Byt namn på projektet">✎</button>
+            <button type="button" data-job="delete" class="icon" title="Ta bort projektet">×</button>
+          </div>
+          <div class="pb-head"><label for="room-select">Rum</label></div>
+          <div class="pb-row">
+            <select id="room-select"></select>
+            <button type="button" data-job="room-new" class="icon" title="Nytt rum i projektet">+</button>
+            <button type="button" data-job="room-rename" class="icon" title="Byt namn på rummet">✎</button>
+            <button type="button" data-job="room-delete" class="icon" title="Ta bort rummet">×</button>
+          </div>
+          <p id="project-message" class="code-error" role="alert"></p>
+        </section>
+
         <div class="tabs" role="tablist" aria-label="Läge">
           <button type="button" role="tab" data-mode="part" class="is-active" aria-selected="true">Del</button>
           <button type="button" role="tab" data-mode="assembly" aria-selected="false">
@@ -90,6 +116,10 @@
             <div class="asm-order__head">
               <h2>Beställningslista</h2>
               <div class="asm-order__actions">
+                <div class="seg-mini order-scope" hidden>
+                  <button type="button" data-scope="room" title="Bara det här rummet">Rummet</button>
+                  <button type="button" data-scope="project" title="Alla rum i projektet, sammanslaget">Projektet</button>
+                </div>
                 <button type="button" data-order="copy" title="Kopiera beställningsraderna, klara att klistra in">Kopiera</button>
                 <button type="button" data-order="download" title="Ladda ner som textfil">Ladda ner .txt</button>
               </div>
@@ -170,11 +200,6 @@
         <section class="my-parts">
           <div class="my-parts__head">
             <h2>Mina delar</h2>
-            <div class="my-parts__file">
-              <button type="button" id="export-project" title="Ladda ner Mina delar, sammanställningen och rummet som en fil">Exportera</button>
-              <button type="button" id="import-project" title="Läs in en projektfil">Importera</button>
-              <input type="file" id="import-file" accept=".json,application/json" hidden />
-            </div>
           </div>
           <p id="parts-empty" class="my-parts__empty">Inget sparat än. Visa en kod och tryck ”Spara i Mina delar”.</p>
           <ul id="parts-list" class="parts-list"></ul>
@@ -208,12 +233,16 @@
             <button type="button" id="toggle-labels" class="is-active" aria-pressed="true" title="Visa/dölj all text i scenen">Etiketter</button>
             <button type="button" id="toggle-room" class="is-active" aria-pressed="true" title="Visa/dölj väggar, golv och tak" hidden>Rum</button>
           </div>
+          <button type="button" id="measure" class="ghost" aria-pressed="false" title="Mät mellan två punkter" hidden>📏 Mät</button>
           <button type="button" id="snapshot" class="ghost">Spara PNG</button>
         </div>
+
+        <div class="measure-panel" id="measure-panel" hidden></div>
 
         <p class="hint" id="stage-hint">Dra för att rotera · Högerdra för att panorera · Scrolla för att zooma</p>
       </main>
     </div>
+    <div id="print-root" class="print-root"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
