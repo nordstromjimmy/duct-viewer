@@ -33,8 +33,8 @@ export const VARIANTS: Record<BendVariant, { label: string; angle: number; leg2?
 export const VANE_FROM = 800;
 /** Standard 90° leg (30 mm straight + R100 throat). */
 export const LEG_90 = 130;
-/** Shortest leg that still contains the R100 throat arc. */
-export const LEG_MIN = 100;
+/** Shortest second leg we draw; below 100 mm the throat radius shrinks to the leg length. */
+export const LEG_MIN = 50;
 
 const fail = (error: string): ParseResult<Bend> => ({ ok: false, error });
 
@@ -80,13 +80,11 @@ export function parseKB(input: string): ParseResult<Bend> {
       if (e > height) warnings.push(`eeee (${e}) är större än cccc (${height}) – utförande 0 är för en reducerad sida.`);
     }
     leg2 = f;
-    // The datasheet gives no minimum ("valfri benlängd"). Geometrically the leg must at least
-    // contain the R100 throat arc, so below that we draw the minimum and say so.
+    // The datasheet gives no minimum ("valfri benlängd"); 50 mm can be ordered. Legs under 100 mm
+    // are drawn with a tighter throat (radius = the leg). Below 50 mm we draw 50 and say so.
     if (leg2 < LEG_MIN) {
-      warnings.push(`Benet ${leg2} mm är kortare än innerradien ${LEG_MIN} mm – ritas som ${LEG_MIN} mm.`);
+      warnings.push(`Benen ${leg2} mm är kortare än innerradien ${LEG_MIN} mm – ritas som ${LEG_MIN} mm.`);
       leg2 = LEG_MIN;
-    } else if (leg2 < LEG_90) {
-      warnings.push(`Benet ${leg2} mm är kortare än standard ${LEG_90} mm – produktbladet anger inget minimum, kontrollera med Crenna.`);
     }
   }
 
@@ -120,7 +118,8 @@ export function parseKB(input: string): ParseResult<Bend> {
       height,
       endWidth,
       endHeight,
-      leg1: is90 ? LEG_90 : 50,
+      // a = 0 / 4: ffff is the length of both legs
+      leg1: v.custom ? leg2 : is90 ? LEG_90 : 50,
       leg2,
       roundHeel: !insulated,
       guideVane,

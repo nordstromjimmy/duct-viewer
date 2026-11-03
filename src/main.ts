@@ -724,3 +724,9 @@ input.value = initial;
 $('#asm-count').textContent = store.project.assembly.length ? String(store.project.assembly.length) : '';
 renderProjectBar();
 setMode('part');
+
+// Phones only get the Part tab (Assembly and Room need a bigger screen)
+const narrow = window.matchMedia('(max-width: 800px)');
+narrow.addEventListener('change', () => {
+  if (narrow.matches && mode !== 'part') setMode('part');
+});

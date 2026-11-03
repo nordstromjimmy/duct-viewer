@@ -31,19 +31,24 @@ interface Curve {
 
 const DEG = Math.PI / 180;
 
-/** 90° throat geometry from the datasheet: 30 mm straight + R100 arc = 130 mm legs. */
+/**
+ * 90° throat geometry from the datasheet: 30 mm straight + R100 arc = 130 mm legs. Legs shorter
+ * than 100 mm get a tighter throat (radius = the shortest leg), so they can still be drawn.
+ */
 const THROAT_R = 100;
 const THROAT_STRAIGHT = 30;
+const LEG_STANDARD = THROAT_R + THROAT_STRAIGHT;
 
 /**
  * The throat (inside) curve, moved `o` mm towards the heel (negative = away from the duct).
  */
 function throat(p: Bend, o: number): Curve {
   if (p.angle === 90) {
-    const leg = THROAT_R + THROAT_STRAIGHT;
-    const r = THROAT_R + o;
-    const cu = THROAT_STRAIGHT;
-    const cv = -THROAT_R;
+    const leg = p.leg1; // where the throat of leg 2 runs (u): the first leg's length
+    const R = Math.min(THROAT_R, p.leg1, p.leg2); // short legs → tighter throat
+    const r = R + o;
+    const cu = leg - R;
+    const cv = -R;
     return {
       start: pt(0, o),
       turn: r > 0
@@ -72,7 +77,7 @@ function throat(p: Bend, o: number): Curve {
 function heel(p: Bend, o: number): Curve {
   const b = p.width;
   if (p.angle === 90) {
-    const leg = THROAT_R + THROAT_STRAIGHT;
+    const leg = p.leg1;
     const e = p.endWidth; // a = 4 narrows the bend-plane side at end 2
     const endU = leg + e - o;
     if (!p.roundHeel) {
@@ -263,16 +268,22 @@ export function buildBend(p: Bend, mat: Materials): DuctModel {
   // a = 4 replaces bbbb with eeee at end 2, a = 0 replaces cccc
   dims.add(dimension(i2, o2, V(0, gap, 0), `${p.endWidth}`, p.variant === 4 ? 'eeee' : 'bbbb'));
   dims.add(dimension(o2.clone().setY(-h2), o2, outDir.clone().multiplyScalar(gap), `${p.endHeight}`, p.variant === 0 ? 'eeee' : 'cccc'));
-  // 90° bends: second leg, measured like the datasheet – from end 2 to the throat edge of end 1
+  // 90° bends: the legs, measured like the datasheet – from each end to the throat edge of the other
   if (p.angle === 90) {
     const z = 0;
+    const field = p.variant === 0 || p.variant === 4 ? 'ffff' : undefined;
+    if (field || p.leg1 !== LEG_STANDARD) {
+      // First leg: in the plane of end 2, from end 1 to the throat edge of end 2
+      const x = -b / 2 - p.leg2;
+      dims.add(dimension(V(x, h1, 0), V(x, h1, p.leg1), V(-gap, 0, 0), `${p.leg1}`, field));
+    }
     dims.add(
       dimension(
         V(-b / 2, h1, z),
         V(-b / 2 - p.leg2, h1, z),
         V(0, 0, -gap),
         `${p.leg2}`,
-        p.variant === 0 || p.variant === 4 ? 'ffff' : undefined,
+        field,
       ),
     );
   }
