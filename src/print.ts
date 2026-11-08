@@ -16,6 +16,8 @@ export interface RoomSheet {
   picture: string | null;
   /** Each part seen from above. */
   outlines: { partId: string; outlines: [number, number][][]; centre: [number, number] }[];
+  /** Skisser (SVG) for parts made to a sketch in this room. */
+  skisser?: string[];
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -82,6 +84,7 @@ function roomPage(store: Store, s: RoomSheet, order: Order, date: string): strin
     );
   }
   parts.push(`</div></section>`);
+  for (const svg of s.skisser ?? []) parts.push(`<section class="pr-page pr-skiss">${svg}</section>`);
   return parts.join('');
 }
 
@@ -96,7 +99,7 @@ function orderTable(o: Order, title: string): string {
   if (!o.lines.length && !o.other.length) return out.concat('<p class="pr-note">Inga delar.</p>').join('');
   out.push(`<table class="pr-table"><thead><tr><th>Detalj</th><th>Antal</th><th>Beställningskod</th><th>Ändar</th></tr></thead><tbody>`);
   for (const l of o.lines) {
-    out.push(`<tr><td class="pr-mono">${l.detail}</td><td class="pr-mono">${l.count}</td><td class="pr-mono">${esc(l.base)}</td><td class="pr-mono">${esc(l.ends || '–')}</td></tr>`);
+    out.push(`<tr><td class="pr-mono">${l.detail}</td><td class="pr-mono">${l.count}</td><td class="pr-mono">${esc(l.base)}${l.note ? `<br><small class="pr-linenote">${esc(l.note)}</small>` : ''}</td><td class="pr-mono">${esc(l.ends || '–')}</td></tr>`);
   }
   out.push(`</tbody></table>`);
   const cuts = o.lines.filter((l) => l.cuts.length);

@@ -3,10 +3,10 @@
 import * as THREE from 'three';
 import { parseCode, summary } from '../codes';
 import type { Materials } from '../geometry/materials';
-import { portSize, type PortId } from '../geometry/ports';
-import { newId, type AsmPart, type Store } from '../store';
+import { portSize, type Port, type PortId } from '../geometry/ports';
+import { newId, type AsmPart, type DuctSide, type Mount, type Store } from '../store';
 import type { Viewer } from '../viewer';
-import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, portsOf, type Layout } from './layout';
+import { addQuarterTurn, bestFit, bestRoll, canCut, layout, MIN_CUT, mountFootprint, mountQuarter, portsOf, type Layout } from './layout';
 import { buildOrder, lineText, orderText as orderTextOf, projectOrderText, roomOrder, type Order } from './order';
 import { buildAssemblyScene, type PortRef } from './scene';
 import { findCollisions, type Collision } from '../room/collide';
@@ -27,6 +27,8 @@ export interface AssemblyUi {
   onView: (code: string) => void;
   /** Called after every redraw (e.g. to update the toolbar). */
   onRender: () => void;
+  /** Extra controls at the bottom of "Vald del" (e.g. the Skiss button). */
+  selectedExtras?: (asm: AsmPart, laid: Layout['parts'][number]) => HTMLElement[] | null;
 }
 
 export class AssemblyController {
@@ -189,9 +191,15 @@ export class AssemblyController {
           return c;
         };
         const nr = document.createElement('td');
-        nr.append(this.detailInput(l.code, l.detail, l.manual));
+        nr.append(this.detailInput(l.key, l.detail, l.manual));
         const codeCell = td(l.base, 'order-code');
         codeCell.title = lineText(l);
+        if (l.note) {
+          const small = document.createElement('small');
+          small.className = 'order-note-inline';
+          small.textContent = l.note;
+          codeCell.append(small);
+        }
         tr.append(nr, td(String(l.count), 'order-qty'), codeCell, td(l.ends || '–', 'order-ends'));
         return tr;
       }),
@@ -274,7 +282,10 @@ export class AssemblyController {
     // Joint status
     let joint = 'Första delen – allt annat sitter fast i den.';
     let jointCls = 'sel-joint';
-    if (asm.parent) {
+    if (asm.parent && asm.mount) {
+      const parent = this.lay!.parts.find((p) => p.asm.id === asm.parent);
+      joint = `Monterad på sidan av ${parent?.asm.code ?? '?'}`;
+    } else if (asm.parent) {
       const parent = this.lay!.parts.find((p) => p.asm.id === asm.parent);
       const j = this.lay!.joints.find((x) => x.childId === asm.id);
       const pPort = parent?.ports.find((w) => w.port.id === asm.parentPort);
@@ -296,9 +307,9 @@ export class AssemblyController {
       actions.append(b);
       return b;
     };
-    button('roll-left', '↺', 'Vrid den här delen 90° runt skarven');
-    button('roll-right', '↻', 'Vrid den här delen 90° åt andra hållet');
-    if (asm.parent && laid.model.ports.filter((p) => p.open).length > 1) {
+    button('roll-left', '↺', asm.mount ? 'Vrid delen 90° på kanalsidan' : 'Vrid den här delen 90° runt skarven');
+    button('roll-right', '↻', asm.mount ? 'Vrid delen 90° åt andra hållet' : 'Vrid den här delen 90° åt andra hållet');
+    if (asm.parent && !asm.mount && laid.model.ports.filter((p) => p.open).length > 1) {
       button('turn', '⇄ Vänd', 'Fäst med en annan ände');
     }
     button('view', 'Visa', 'Öppna under fliken Del');
@@ -311,7 +322,7 @@ export class AssemblyController {
     if (line) {
       const row = el('div', 'sel-detail');
       const lab = el('label', '', 'Detaljnr');
-      lab.append(this.detailInput(line.code, line.detail, line.manual));
+      lab.append(this.detailInput(line.key, line.detail, line.manual));
       row.append(lab, el('span', 'sel-cut__of', line.count > 1 ? `${line.count} st av den här koden i sammanställningen` : 'bara en av den här koden'));
       box.append(row);
     } else if (this.order?.other.some((o) => o.partIds.includes(asm.id))) {
@@ -319,7 +330,268 @@ export class AssemblyController {
     }
     const cut = this.cutSection(asm);
     if (cut) box.append(cut);
+    if (asm.mount) box.append(this.mountEditor(asm));
+    else if (laid.product.kind === 'KK') box.append(this.shapeEditor(asm, laid.product), this.mountAdder(asm, laid.product.length));
+    const extra = this.ui.selectedExtras?.(asm, laid);
+    if (extra) box.append(...extra);
     box.append(actions);
+  }
+
+  /** Fields for side / along / across of a mounted stosram (shared by "add" and "edit"). */
+  private mountFields(m: Mount, onChange: (m: Mount) => void): HTMLElement {
+    const grid = document.createElement('div');
+    grid.className = 'sel-mount__grid';
+    const field = (label: string, input: HTMLElement, unit = '') => {
+      const l = document.createElement('label');
+      const s = document.createElement('span');
+      s.textContent = label;
+      l.append(s, input);
+      if (unit) l.append(unit);
+      grid.append(l);
+    };
+    const side = document.createElement('select');
+    for (const [v, t] of [['left', 'Vänster'], ['right', 'Höger'], ['top', 'Ovansida'], ['bottom', 'Undersida']] as [DuctSide, string][]) {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = t;
+      o.selected = m.side === v;
+      side.append(o);
+    }
+    const num = (v: number) => {
+      const i = document.createElement('input');
+      i.type = 'number';
+      i.step = '10';
+      i.value = String(v);
+      return i;
+    };
+    const along = num(m.along);
+    const across = num(m.across);
+    field('Sida (sett från ände 1)', side);
+    field('Från ände 1 till kant', along, ' mm');
+    field(m.side === 'left' || m.side === 'right' ? 'Från underkant' : 'Från vänster kant', across, ' mm');
+    const read = (): Mount => ({
+      side: side.value as DuctSide,
+      along: Math.round(Number(along.value) || 0),
+      across: Math.round(Number(across.value) || 0),
+      ...(m.turned ? { turned: true } : {}),
+    });
+    for (const el of [side, along, across]) el.addEventListener('change', () => onChange(read()));
+    for (const el of [along, across]) el.addEventListener('keydown', (e) => e.stopPropagation());
+    return grid;
+  }
+
+  /** Rectangular ends a part could be mounted by, e.g. a KD's big and small end. */
+  private mountablePorts(code: string): Port[] {
+    const parsed = parseCode(code);
+    return parsed.ok ? portsOf(parsed.product, this.mat).filter((p) => p.shape === 'rect') : [];
+  }
+
+  /** Which end of the mounted part sits against the duct. */
+  private viaSelect(code: string, via: PortId): HTMLSelectElement {
+    const sel = document.createElement('select');
+    for (const p of this.mountablePorts(code)) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = `${p.label} (${portSize(p)})`;
+      o.selected = p.id === via;
+      sel.append(o);
+    }
+    return sel;
+  }
+
+  /** On a selected straight duct: mount a part from My parts (stosram, duct, transition …) on one of its sides. */
+  private mountAdder(asm: AsmPart, length: number): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'sel-mount';
+    const h = document.createElement('h3');
+    h.textContent = 'Montera del på sidan';
+    wrap.append(h);
+    const parts = this.store.project.parts.filter((p) => this.mountablePorts(p.code).length > 0 && !p.code.startsWith('AGG'));
+    if (!parts.length) {
+      const p = document.createElement('p');
+      p.className = 'sel-cut__of';
+      p.textContent = 'Spara delen i Mina delar först, t.ex. en stosram KRM-2-1010-150-0-350 F/P.';
+      wrap.append(p);
+      return wrap;
+    }
+    const pick = document.createElement('select');
+    for (const s of parts) {
+      const o = document.createElement('option');
+      o.value = s.code;
+      o.textContent = `${s.name} · ${s.code}`;
+      pick.append(o);
+    }
+    // Stosramar first in the list is nice, but keep the user's order; preselect the first KR if any
+    const firstKR = parts.find((p) => p.code.startsWith('KR'));
+    if (firstKR) pick.value = firstKR.code;
+
+    let via: PortId = this.mountablePorts(pick.value)[0]?.id ?? 'end1';
+    let m: Mount = { side: 'left', along: 0, across: 0 };
+    const centre = () => {
+      const port = this.mountablePorts(pick.value).find((p) => p.id === via);
+      if (port) m = { ...m, along: Math.max(0, Math.round((length - mountFootprint(port, 0).along) / 2)) };
+    };
+    centre();
+    let viaSel = this.viaSelect(pick.value, via);
+    const viaLabel = document.createElement('label');
+    viaLabel.className = 'sel-mount__via';
+    const viaText = document.createElement('span');
+    viaText.textContent = 'Mot kanalen';
+    viaLabel.append(viaText, viaSel);
+    const bindVia = () => viaSel.addEventListener('change', () => {
+      via = viaSel.value as PortId;
+      centre();
+      refresh();
+    });
+    bindVia();
+    let fields = this.mountFields(m, (x) => (m = x));
+    const refresh = () => {
+      const next = this.mountFields(m, (x) => (m = x));
+      fields.replaceWith(next);
+      fields = next;
+    };
+    pick.addEventListener('change', () => {
+      via = this.mountablePorts(pick.value)[0]?.id ?? 'end1';
+      const nextVia = this.viaSelect(pick.value, via);
+      viaSel.replaceWith(nextVia);
+      viaSel = nextVia;
+      bindVia();
+      centre();
+      refresh();
+    });
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'sel-mount__go';
+    go.textContent = 'Montera';
+    go.addEventListener('click', () => {
+      const id = newId();
+      const code = pick.value;
+      this.store.update((p) => p.assembly.push({ id, code, parent: asm.id, parentPort: null, via, roll: 0, mount: m }));
+      this.selectedPart = id;
+      // Continue building from the mounted part's next free end
+      const parsed = parseCode(code);
+      const next = parsed.ok ? portsOf(parsed.product, this.mat).find((x) => x.id !== via && x.open) : undefined;
+      this.target = next ? { partId: id, portId: next.id } : this.target;
+      this.render(true);
+    });
+    wrap.append(pick, viaLabel, fields, go);
+    return wrap;
+  }
+
+  /** On a straight duct: close end 2 and round off (or cut) one corner – drawn per skiss. */
+  private shapeEditor(asm: AsmPart, duct: { width: number; length: number; ends: string[] }): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'sel-mount';
+    const h = document.createElement('h3');
+    h.textContent = 'Specialanpassad ände 2 (skiss)';
+    const on = document.createElement('label');
+    on.className = 'sel-mount__check';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = !!asm.shape;
+    on.append(box, ' Stängd ände 2 med rundat eller avfasat hörn');
+    wrap.append(h, on);
+    const save = (shape: AsmPart['shape']) => {
+      this.store.update((p) => {
+        const a = p.assembly.find((x) => x.id === asm.id);
+        if (!a) return;
+        if (shape) a.shape = shape;
+        else delete a.shape;
+      });
+      this.render();
+    };
+    box.addEventListener('change', () =>
+      save(box.checked ? { corner: 'right', kind: 'round', along: Math.round(Math.min(300, duct.length / 3)), across: Math.round(duct.width / 2) } : undefined),
+    );
+    const s = asm.shape;
+    if (!s) return wrap;
+
+    const grid = document.createElement('div');
+    grid.className = 'sel-mount__grid';
+    const sel = (opts: [string, string][], v: string) => {
+      const e = document.createElement('select');
+      for (const [val, t] of opts) {
+        const o = document.createElement('option');
+        o.value = val;
+        o.textContent = t;
+        o.selected = val === v;
+        e.append(o);
+      }
+      return e;
+    };
+    const num = (v: number) => {
+      const i = document.createElement('input');
+      i.type = 'number';
+      i.step = '10';
+      i.min = '0';
+      i.value = String(v);
+      i.addEventListener('keydown', (e) => e.stopPropagation());
+      return i;
+    };
+    const corner = sel([['left', 'Vänster'], ['right', 'Höger']], s.corner);
+    const kind = sel([['round', 'Rundat'], ['chamfer', 'Rak fas']], s.kind);
+    const along = num(s.along);
+    const across = num(s.across);
+    const field = (label: string, input: HTMLElement, unit = '') => {
+      const l = document.createElement('label');
+      const t = document.createElement('span');
+      t.textContent = label;
+      l.append(t, input);
+      if (unit) l.append(unit);
+      grid.append(l);
+    };
+    field('Hörn (sett från ände 1)', corner);
+    field('Form', kind);
+    field('Längs sidan från ände 2', along, ' mm');
+    field('Tvärs änden', across, ' mm');
+    const read = () => ({
+      corner: corner.value as 'left' | 'right',
+      kind: kind.value as 'round' | 'chamfer',
+      along: Math.min(duct.length, Math.max(0, Math.round(Number(along.value) || 0))),
+      across: Math.min(duct.width, Math.max(0, Math.round(Number(across.value) || 0))),
+    });
+    for (const e of [corner, kind, along, across]) e.addEventListener('change', () => save(read()));
+    wrap.append(grid);
+    if (!/B$/.test(duct.ends[1])) {
+      const p = document.createElement('p');
+      p.className = 'sel-cut__of';
+      p.textContent = 'Tips: beställ ände 2 som stängd, t.ex. PG/Fast B, och bifoga skissen.';
+      wrap.append(p);
+    }
+    return wrap;
+  }
+
+  /** On a mounted stosram: move it on the duct's side. */
+  private mountEditor(asm: AsmPart): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'sel-mount';
+    const h = document.createElement('h3');
+    h.textContent = 'Placering på kanalen';
+    const viaLabel = document.createElement('label');
+    viaLabel.className = 'sel-mount__via';
+    const viaText = document.createElement('span');
+    viaText.textContent = 'Mot kanalen';
+    const viaSel = this.viaSelect(asm.code, asm.via);
+    viaSel.addEventListener('change', () => {
+      this.store.update((p) => {
+        const a = p.assembly.find((x) => x.id === asm.id);
+        if (a) a.via = viaSel.value as PortId;
+      });
+      this.render();
+    });
+    viaLabel.append(viaText, viaSel);
+    wrap.append(
+      h,
+      ...(this.mountablePorts(asm.code).length > 1 ? [viaLabel] : []),
+      this.mountFields(asm.mount!, (m) => {
+        this.store.update((p) => {
+          const a = p.assembly.find((x) => x.id === asm.id);
+          if (a) a.mount = m;
+        });
+        this.render();
+      }),
+    );
+    return wrap;
   }
 
   /** "Cut length" field for straight ducts with a loose/plain end, or a hint for other straight ducts. */
@@ -578,11 +850,12 @@ export class AssemblyController {
   resetRoll() {
     const id = this.selectedPart;
     const a = this.find(id);
-    if (!a || (!a.roll && !a.tilt)) return;
+    if (!a || (!a.roll && !a.tilt && !a.mount?.turned)) return;
     this.store.update((p) => {
       const x = p.assembly.find((y) => y.id === id)!;
       x.roll = 0;
       delete x.tilt;
+      if (x.mount) delete x.mount.turned;
     });
     this.render(true);
   }
@@ -590,13 +863,14 @@ export class AssemblyController {
   /** True when the selected part is turned or tipped (so Reset has something to do). */
   get selectedIsTurned(): boolean {
     const a = this.find(this.selectedPart);
-    return !!a && (a.roll !== 0 || !!a.tilt);
+    return !!a && (a.roll !== 0 || !!a.tilt || !!a.mount?.turned);
   }
 
   /** Selected part's roll in degrees, or null when nothing is selected. */
   get selectedRollDegrees(): number | null {
     const a = this.find(this.selectedPart);
-    return a ? a.roll * 90 : null;
+    if (!a) return null;
+    return (a.mount ? mountQuarter(a) : a.roll) * 90;
   }
 
   /** Attach the selected part by its next open end instead. */

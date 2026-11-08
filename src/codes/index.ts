@@ -6,6 +6,7 @@ import { describeAGG, parseAGG } from './agg';
 import { describeKB, parseKB } from './kb';
 import { describeKD, parseKD } from './kd';
 import { describeKK, parseKK } from './kk';
+import { describeKR, parseKR } from './kr';
 import { describeKO, parseKO } from './ko';
 import { describeKS, parseKS } from './ks';
 import { describeKT, parseKT } from './kt';
@@ -20,6 +21,8 @@ const PARSERS: Record<string, (input: string) => ParseResult> = {
   KÖ: parseKO,
   KO: parseKO, // KÖ typed without Ö
   KT: parseKT,
+  KR: parseKR,
+  KRM: parseKR,
   AGG: parseAGG,
   LD: parseLD,
   SP: parseSP,
@@ -31,7 +34,7 @@ export function parseCode(input: string): ParseResult {
   const prefix = s.match(/^[A-ZÅÄÖ]+/)?.[0] ?? '';
   const parser = PARSERS[prefix];
   if (!parser) {
-    return { ok: false, error: `Okänd produkt "${prefix || s}". Hittills stöds: ${Object.keys(PARSERS).filter((k) => k !== 'KO').join(', ')}.` };
+    return { ok: false, error: `Okänd produkt "${prefix || s}". Hittills stöds: ${Object.keys(PARSERS).filter((k) => k !== 'KO' && k !== 'KRM').join(', ')}.` };
   }
   return parser(s);
 }
@@ -40,6 +43,7 @@ export function parseCode(input: string): ParseResult {
 export function summary(p: Product): string {
   switch (p.kind) {
     case 'KK': return `Rak kanal ${p.width}×${p.height} · ${p.length}`;
+    case 'KR': return `Stosram${p.mounted ? ' (monterad)' : ''} ${p.width}×${p.height} · ${p.length}`;
     case 'KD': return `Dim.förändring ${p.width}×${p.height} → ${p.smallWidth}×${p.smallHeight}`;
     case 'KB': return `Böj ${p.angle}° · ${p.width}×${p.height}`;
     case 'KS': return `S-böj ${p.width}×${p.height} · fall ${p.offset}`;
@@ -54,6 +58,7 @@ export function summary(p: Product): string {
 export function describe(p: Product): SpecRow[] {
   switch (p.kind) {
     case 'KK': return describeKK(p);
+    case 'KR': return describeKR(p);
     case 'KD': return describeKD(p);
     case 'KB': return describeKB(p);
     case 'KS': return describeKS(p);

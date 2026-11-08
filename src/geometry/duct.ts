@@ -54,7 +54,7 @@ function buildInsulation(d: StraightDuct, mat: Materials): THREE.Group {
   return g;
 }
 
-function buildDimensions(d: StraightDuct, overhang: number): THREE.Group {
+function buildDimensions(d: StraightDuct, overhang: number, lengthField?: string): THREE.Group {
   const g = new THREE.Group();
   g.name = 'dimensions';
   const W = d.width / 2 + SHEET;
@@ -69,7 +69,7 @@ function buildDimensions(d: StraightDuct, overhang: number): THREE.Group {
   g.add(dimension(V(W, -H, zEnd), V(W, H, zEnd), V(gap, 0, 0), `${d.height}`, 'cccc'));
   // Length along the bottom right edge
   g.add(dimension(V(W, -H, -zEnd), V(W, -H, zEnd), V(gap * 0.7, -gap * 0.7, 0), `${d.length}`,
-    d.variant >= 3 ? 'eeee' : undefined)); // standard lengths come from "a", not a field
+    lengthField ?? (d.variant >= 3 ? 'eeee' : undefined))); // standard lengths come from "a", not a field
   return g;
 }
 
@@ -82,7 +82,8 @@ function endTag(text: string, z: number, d: StraightDuct, overhang: number): CSS
   return obj;
 }
 
-export function buildDuct(d: StraightDuct, mat: Materials): DuctModel {
+/** `lengthField`: code field name shown on the length dimension (KK: eeee, KR: ffff). */
+export function buildDuct(d: StraightDuct, mat: Materials, lengthField?: string): DuctModel {
   const root = new THREE.Group();
   const physical = new THREE.Group();
   root.add(physical);
@@ -115,7 +116,7 @@ export function buildDuct(d: StraightDuct, mat: Materials): DuctModel {
   root.add(endTag('Ände 1', -d.length / 2, d, overhang));
   root.add(endTag('Ände 2', d.length / 2, d, overhang));
 
-  const dimensions = buildDimensions(d, overhang);
+  const dimensions = buildDimensions(d, overhang, lengthField);
   root.add(dimensions);
 
   const ports = [

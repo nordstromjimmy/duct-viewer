@@ -8,11 +8,13 @@ import * as THREE from 'three';
 import { parseCode } from '../codes';
 import type { Product } from '../codes/types';
 import { buildModel } from '../geometry';
+import { buildShapedDuct } from '../geometry/special';
 import { disposeModel, type DuctModel } from '../geometry/duct';
 import { LOOSE_PG } from '../geometry/ends';
 import type { Materials } from '../geometry/materials';
 import { portsMatch, portSize, type Port, type PortId } from '../geometry/ports';
-import type { AsmPart } from '../store';
+import { SHEET } from '../geometry/ends';
+import type { AsmPart, Mount } from '../store';
 
 const QUARTER = Math.PI / 2;
 
@@ -111,7 +113,8 @@ export function layout(assembly: AsmPart[], mat: Materials, place?: [number, num
     }
     // A site-cut part is drawn at its cut length (the code stays what's ordered)
     const product = withCut(parsed.product, asm.cut);
-    const model = buildModel(product, mat);
+    // A straight duct with a shaped (closed, rounded) end 2 is drawn from its sketch
+    const model = asm.shape && product.kind === 'KK' ? buildShapedDuct(product, asm.shape, mat) : buildModel(product, mat);
     dropLoosePG(model);
     const own = model.ports.find((p) => p.id === asm.via) ?? model.ports[0];
 
@@ -131,6 +134,26 @@ export function layout(assembly: AsmPart[], mat: Materials, place?: [number, num
       if (place) matrix = new THREE.Matrix4().makeTranslation(...place).multiply(matrix);
     } else {
       const parent = byId.get(asm.parent);
+      if (parent && asm.mount) {
+        // A stosram on the parent's side: its own end sits on the side, facing in
+        const quarter = mountQuarter(asm);
+        const target = mountTarget(parent, asm.mount, own, quarter);
+        if (typeof target === 'string') {
+          disposeModel(model.root);
+          out.problems.push({ id: asm.id, code: asm.code, message: target });
+          continue;
+        }
+        matrix = attachMatrix(own, target, quarter);
+        const ports = model.ports.map((p) => worldPort(asm.id, p, matrix));
+        ports.find((p) => p.port.id === own.id)!.connected = true;
+        const laid: LaidPart = { asm, product, model, matrix, ports };
+        out.parts.push(laid);
+        byId.set(asm.id, laid);
+        for (let i = waiting.length - 1; i >= 0; i--) {
+          if (waiting[i].parent === asm.id) queue.push(...waiting.splice(i, 1));
+        }
+        continue;
+      }
       const target = parent?.ports.find((p) => p.port.id === asm.parentPort);
       if (!parent || !target) {
         disposeModel(model.root);
@@ -166,6 +189,61 @@ export function layout(assembly: AsmPart[], mat: Materials, place?: [number, num
     out.problems.push({ id: w.id, code: w.code, message: 'Inte ansluten till sammanställningen.' });
   }
   return out;
+}
+
+/** Quarter turns of a mounted part on the duct side (its roll, plus the old "turned" flag). */
+export function mountQuarter(asm: AsmPart): number {
+  return (((asm.roll + (asm.mount?.turned ? 1 : 0)) % 4) + 4) % 4;
+}
+
+/**
+ * Size of a mounted part's end (the one against the duct) along and across the duct side.
+ * Unturned, its width (bbbb) runs along the duct; every odd quarter turn swaps the two.
+ */
+export function mountFootprint(port: Port, quarter: number): { along: number; across: number } {
+  return quarter % 2 ? { along: port.h, across: port.w } : { along: port.w, across: port.h };
+}
+
+/**
+ * Where a part mounted on a straight duct's side sits: a made-up "end" on the outside of the
+ * side, pointing out, in world coordinates. Returns an error message if it can't be mounted.
+ */
+export function mountTarget(host: LaidPart, mount: Mount, own: Port, quarter: number): WorldPort | string {
+  const p = host.product;
+  if (p.kind !== 'KK') return 'Delar kan bara monteras på sidan av en rak kanal (KK).';
+  if (own.shape !== 'rect') return 'Bara en rektangulär ände kan monteras mot kanalsidan.';
+  const fp = mountFootprint(own, quarter);
+  const L = p.length;
+  const W = p.width;
+  const H = p.height;
+  const z = -L / 2 + mount.along + fp.along / 2;
+  let position: THREE.Vector3;
+  let normal: THREE.Vector3;
+  let up: THREE.Vector3;
+  // Seen from end 1 looking towards end 2: left is +X, right is −X
+  const acrossDir = mount.side === 'left' || mount.side === 'right' ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  switch (mount.side) {
+    case 'left':
+      position = new THREE.Vector3(W / 2 + SHEET, -H / 2 + mount.across + fp.across / 2, z);
+      normal = new THREE.Vector3(1, 0, 0);
+      break;
+    case 'right':
+      position = new THREE.Vector3(-W / 2 - SHEET, -H / 2 + mount.across + fp.across / 2, z);
+      normal = new THREE.Vector3(-1, 0, 0);
+      break;
+    case 'top':
+      position = new THREE.Vector3(W / 2 - mount.across - fp.across / 2, H / 2 + SHEET, z);
+      normal = new THREE.Vector3(0, 1, 0);
+      break;
+    case 'bottom':
+      position = new THREE.Vector3(W / 2 - mount.across - fp.across / 2, -H / 2 - SHEET, z);
+      normal = new THREE.Vector3(0, -1, 0);
+      break;
+  }
+  // Unturned, the part's height (cccc) runs across the side; its turns are applied when attaching
+  up = acrossDir;
+  const fake = { id: 'end1', label: 'Sida', position, normal, up, shape: 'rect', w: fp.along, h: fp.across, end: 'F', open: false } as unknown as Port;
+  return worldPort(host.asm.id, fake, host.matrix);
 }
 
 /**

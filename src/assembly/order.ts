@@ -9,7 +9,7 @@ import type { AsmPart } from '../store';
 import { canCut } from './layout';
 
 /** Products ordered from Crenna. Units, silencers and dampers are generic and listed apart. */
-const CRENNA = new Set(['KK', 'KD', 'KB', 'KS', 'KÖ', 'KT']);
+const CRENNA = new Set(['KK', 'KD', 'KB', 'KS', 'KÖ', 'KT', 'KR']);
 
 export interface OrderLine {
   detail: number;
@@ -28,6 +28,17 @@ export interface OrderLine {
   rooms: number[];
   /** Room index of each site cut (same order as `cuts`). */
   cutRooms: number[];
+  /**
+   * What hand-set detail numbers are stored under: the code, or code + part for a part made to a
+   * sketch (it's its own line even if another part has the same code).
+   */
+  key: string;
+  /** Extra text after the line, e.g. "enligt skiss" or "monteras på detalj 1". */
+  note?: string;
+  /** For a part mounted on a duct's side: the part it sits on (its detail number goes in the note). */
+  mountedOn?: string;
+  /** KRM: mounted at the factory (otherwise it just sits there per the sketch). */
+  factoryMounted?: boolean;
 }
 
 export interface OtherLine {
@@ -84,10 +95,18 @@ export function buildOrder(source: OrderSource): Order {
         o.partIds.push(a.id);
         continue;
       }
-      let line = byCode.get(p.code);
+      // A part made to a sketch, or a stosram mounted on a particular duct, gets a line of its own
+      const special = !!a.shape || !!a.mount;
+      const key = special ? `${p.code}#${a.id}` : p.code;
+      let line = byCode.get(key);
       if (!line) {
-        line = { detail: 0, manual: false, code: p.code, ...splitOrderCode(p.code), count: 0, partIds: [], cuts: [], rooms: new Array(roomCount).fill(0), cutRooms: [] };
-        byCode.set(p.code, line);
+        line = { detail: 0, manual: false, code: p.code, key, ...splitOrderCode(p.code), count: 0, partIds: [], cuts: [], rooms: new Array(roomCount).fill(0), cutRooms: [] };
+        if (a.shape) line.note = 'enligt skiss';
+        if (a.mount) {
+          line.mountedOn = a.parent ?? undefined;
+          line.factoryMounted = p.kind === 'KR' && p.mounted;
+        }
+        byCode.set(key, line);
         lines.push(line);
       }
       line.count++;
@@ -104,7 +123,7 @@ export function buildOrder(source: OrderSource): Order {
   const details = source.details ?? {};
   const taken = new Set<number>();
   for (const l of lines) {
-    const n = details[l.code];
+    const n = details[l.key];
     if (n) {
       l.detail = n;
       l.manual = true;
@@ -126,6 +145,13 @@ export function buildOrder(source: OrderSource): Order {
   lines.sort((a, b) => a.detail - b.detail);
   const detailOf = new Map<string, number>();
   for (const l of lines) for (const id of l.partIds) detailOf.set(id, l.detail);
+  // A factory-mounted stosram says which detail it goes on
+  for (const l of lines) {
+    if (!l.mountedOn) continue;
+    const host = detailOf.get(l.mountedOn);
+    const verb = l.factoryMounted ? 'monteras på' : 'sitter på';
+    l.note = host !== undefined ? `${verb} detalj ${host} enligt skiss` : `${verb} kanalen enligt skiss`;
+  }
 
   return { lines, other, duplicates, detailOf };
 }
@@ -161,7 +187,8 @@ export function projectOrderText(order: Order, roomNames: string[]): string {
 
 /** One order line as text: "1 - 2 - KK-3-800-500-0-1000 - PG/L". */
 export function lineText(l: OrderLine): string {
-  return [l.detail, l.count, l.base, l.ends].filter((x) => x !== '').join(' - ');
+  const text = [l.detail, l.count, l.base, l.ends].filter((x) => x !== '').join(' - ');
+  return l.note ? `${text} (${l.note})` : text;
 }
 
 /** The whole order as plain text, order lines first so they're easy to copy. */

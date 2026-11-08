@@ -3,6 +3,7 @@ import { AssemblyController } from './assembly/controller';
 import { RoomController } from './room/controller';
 import { MeasureController } from './measure';
 import { buildPrint, type RoomSheet } from './print';
+import { downloadSkissPng, skissHosts, skissSvg } from './skiss';
 import { partOutlines } from './room/collide';
 import { describe, parseCode, summary } from './codes';
 import type { Product } from './codes/types';
@@ -70,6 +71,7 @@ const asm = new AssemblyController(store, viewer, materials, {
     if (mode === 'room') room.render();
     measure.render();
   },
+  selectedExtras: (asm) => skissSection(asm.mount && asm.parent ? asm.parent : asm.id),
 });
 
 // Room tab: walls, floor and roof around the assembly
@@ -77,6 +79,49 @@ const room = new RoomController(store, viewer, asm, {
   panel: $('#room-panel'),
   redraw: (fit) => asm.render(fit),
 });
+
+// Skiss: for a straight duct with a shaped end or a stosram on its side (or a stosram on one)
+function skissSection(hostId: string): HTMLElement[] | null {
+  const lay = asm.layout;
+  const host = lay && skissHosts(lay).find((p) => p.asm.id === hostId);
+  if (!lay || !host) return null;
+  const info = () => ({ project: store.job.name, room: store.activeRoom.name, detailOf: asm.projectOrder?.detailOf ?? new Map<string, number>() });
+  const wrap = document.createElement('div');
+  wrap.className = 'sel-skiss';
+  const note = document.createElement('textarea');
+  note.placeholder = 'Anteckning på skissen (valfritt), t.ex. ”Inspektionslucka på ovansidan”';
+  note.value = host.asm.note ?? '';
+  note.addEventListener('keydown', (e) => e.stopPropagation());
+  note.addEventListener('change', () => {
+    const text = note.value.trim();
+    store.update((p) => {
+      const a = p.assembly.find((x) => x.id === host.asm.id);
+      if (!a) return;
+      if (text) a.note = text;
+      else delete a.note;
+    });
+    asm.render();
+  });
+  const preview = document.createElement('img');
+  preview.className = 'sel-skiss__preview';
+  preview.alt = 'Skiss';
+  preview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(skissSvg(host, lay, info()))}`;
+  preview.title = 'Klicka för att spara skissen som PNG';
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'primary';
+  save.textContent = 'Spara skiss (PNG)';
+  const run = () => {
+    const d = asm.projectOrder?.detailOf.get(host.asm.id);
+    void downloadSkissPng(skissSvg(host, lay, info()), `skiss${d !== undefined ? `-detalj-${d}` : ''}-${slug(host.asm.code)}.png`);
+  };
+  save.addEventListener('click', run);
+  preview.addEventListener('click', run);
+  const label = document.createElement('h3');
+  label.textContent = 'Skiss';
+  wrap.append(label, preview, note, save);
+  return [wrap];
+}
 
 // Measuring tool (Assembly and Room tabs)
 const measureBtn = $<HTMLButtonElement>('#measure');
@@ -442,7 +487,10 @@ async function printProject() {
       await nextFrame();
       viewer.renderNow();
       const hasContent = r.assembly.length > 0 || !!r.room;
-      sheets.push({ room: r, index, picture: hasContent ? viewer.snapshot() : null, outlines: asm.layout ? partOutlines(asm.layout) : [] });
+      const lay = asm.layout;
+      const detailOf = asm.projectOrder?.detailOf ?? new Map<string, number>();
+      const skisser = lay ? skissHosts(lay).map((h) => skissSvg(h, lay, { project: store.job.name, room: r.name, detailOf })) : [];
+      sheets.push({ room: r, index, picture: hasContent ? viewer.snapshot() : null, outlines: lay ? partOutlines(lay) : [], skisser });
     }
     const order = asm.projectOrder;
     store.switchRoom(original);

@@ -14,6 +14,8 @@ import { buildUnit } from './unit';
 export function buildModel(p: Product, mat: Materials): DuctModel {
   switch (p.kind) {
     case 'KK': return buildDuct(p, mat);
+    // A stosram is a short straight duct: flange towards the duct, PG on the free end
+    case 'KR': return buildDuct({ ...p, kind: 'KK', variant: 3, buildLength: p.length }, mat, p.variant === 2 ? 'ffff' : undefined);
     case 'KD': return buildTransition(p, mat);
     case 'KB': return buildBend(p, mat);
     case 'KS': return buildSBend(p, mat);

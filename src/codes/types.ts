@@ -197,7 +197,20 @@ export interface Damper extends ProductBase {
   length: number;
 }
 
-export type Product = StraightDuct | Transition | Bend | SBend | RoundTransition | Tee | VentUnit | Silencer | Damper;
+/** KR / KRM – stosram: a short collar for a branch off a duct side. End 1 sits against the duct. */
+export interface Stosram extends ProductBase {
+  kind: 'KR';
+  /** KRM: mounted at the factory (on the duct it's placed on). */
+  mounted: boolean;
+  /** 1 = 50 mm, 2 = 51–500 mm (ffff). */
+  variant: 1 | 2;
+  /** Opening, mm (bbbb × cccc). */
+  width: number;
+  height: number;
+  length: number;
+}
+
+export type Product = Stosram | StraightDuct | Transition | Bend | SBend | RoundTransition | Tee | VentUnit | Silencer | Damper;
 
 export type ParseResult<T = Product> =
   | { ok: true; product: T }

@@ -37,6 +37,39 @@ export interface AsmPart {
    * quarter turns. Tipping the first part tips the whole assembly.
    */
   tilt?: [number, number, number, number];
+  /** Mounted on the side of the parent (a stosram on a straight duct) instead of on one of its ends. */
+  mount?: Mount;
+  /** Straight duct only: end 2 closed, with one corner rounded or cut off (drawn per skiss). */
+  shape?: EndShape;
+  /** Free text shown on the part's skiss. */
+  note?: string;
+}
+
+/** Which side of a duct, seen from end 1 looking towards end 2. */
+export type DuctSide = 'left' | 'right' | 'top' | 'bottom';
+
+/**
+ * Where a stosram sits on a duct's side. `along`: from end 1 to the stosram's near edge.
+ * `across`: on the left/right sides from the bottom edge, on top/bottom from the left edge.
+ * The part is turned on the side with its `roll` (quarter turns). `turned` is an older flag for
+ * one quarter turn, still read from saved projects.
+ */
+export interface Mount {
+  side: DuctSide;
+  along: number;
+  across: number;
+  turned?: boolean;
+}
+
+/**
+ * A closed end 2 with one corner (left or right, seen from end 1) rounded or cut straight:
+ * the shape starts `along` mm back from end 2 on the side and reaches `across` mm in along the end.
+ */
+export interface EndShape {
+  corner: 'left' | 'right';
+  kind: 'round' | 'chamfer';
+  along: number;
+  across: number;
 }
 
 /** The working view: the active room's content plus the project's shared parts and detail numbers. */

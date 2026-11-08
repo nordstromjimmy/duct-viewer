@@ -998,3 +998,29 @@ body.measuring .viewport canvas { cursor: crosshair; }
   /* Bigger tap targets in My parts */
   .part-item__actions button { padding: 7px 11px; }
 }
+
+/* ---------- Stosram on a duct side, shaped end ---------- */
+.sel-mount { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sel-mount h3 { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.sel-mount > select { width: 100%; margin-bottom: 6px; padding: 5px 6px; font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+.sel-mount__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.sel-mount__grid label { display: grid; gap: 2px; font-size: 11px; color: var(--ink-2); min-width: 0; }
+.sel-mount__grid label > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-mount__grid input[type='number'],
+.sel-mount__grid select { width: 100%; min-width: 0; padding: 4px 6px; font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+.sel-mount__grid select { font-family: inherit; }
+.sel-mount__check { display: flex !important; grid-column: 1 / -1; align-items: center; gap: 6px; font-size: 12px !important; color: var(--ink) !important; }
+.sel-mount__go { margin-top: 8px; padding: 5px 14px; font-size: 12.5px; font-weight: 500; color: #fff; background: var(--ink); border: 0; border-radius: 5px; }
+.sel-mount .sel-cut__of { margin: 6px 0 0; }
+.order-note-inline { display: block; font-family: var(--sans, inherit); font-size: 10.5px; color: var(--accent); white-space: normal; }
+.sel-skiss { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sel-skiss textarea { flex-basis: 100%; min-height: 44px; padding: 5px 6px; font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 5px; resize: vertical; }
+.sel-skiss button { padding: 5px 12px; font-size: 12.5px; font-weight: 500; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; }
+.sel-skiss button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+.sel-skiss h3 { flex-basis: 100%; margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.sel-skiss__preview { flex-basis: 100%; width: 100%; border: 1px solid var(--line); border-radius: 5px; background: #fff; cursor: zoom-in; }
+.pr-skiss svg { display: block; width: 100%; height: auto; }
+@media print { .pr-skiss { break-before: page; } }
+.pr-linenote { font-family: Arial, sans-serif; font-size: 7.5pt; color: #c2410c; }
+.sel-mount__via { display: grid; gap: 2px; margin-bottom: 6px; font-size: 11px; color: var(--ink-2); }
+.sel-mount__via select { width: 100%; padding: 4px 6px; font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
